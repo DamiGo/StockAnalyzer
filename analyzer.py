@@ -9,6 +9,7 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, Email, To, Content, HtmlContent
 import schedule
 import time
+import random
 from datetime import datetime
 import logging
 import sys
@@ -24,6 +25,21 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+# Liste de proxies HTTP pour contourner d'éventuels blocages
+PROXIES = [
+    "http://proxy1.example.com:8080",
+    "http://proxy2.example.com:8080",
+    "http://proxy3.example.com:8080",
+]
+
+
+def set_random_proxy():
+    """Choisit un proxy aléatoirement et le définit pour les requêtes"""
+    proxy = random.choice(PROXIES)
+    os.environ["HTTP_PROXY"] = proxy
+    os.environ["HTTPS_PROXY"] = proxy
+    return proxy
 
 # Configuration SendGrid et emails
 SENDGRID_API_KEY = 'xxx'
@@ -69,6 +85,8 @@ class IndicateursBoursiers:
     def calculer_ratio_peg(ticker):
         """Calcule le ratio PEG (Price/Earnings to Growth) pour un ticker avec gestion améliorée des erreurs"""
         try:
+            proxy = set_random_proxy()
+            logger.info(f"Proxy utilisé pour {ticker}: {proxy}")
             stock = yf.Ticker(ticker)
             # Récupérer les données financières
             info = stock.info
@@ -120,6 +138,8 @@ class AnalyseAction:
     def _telecharger_donnees(self):
         """Télécharge les données historiques de l'action"""
         try:
+            proxy = set_random_proxy()
+            logger.info(f"Proxy utilisé pour {self.ticker}: {proxy}")
             action = yf.Ticker(self.ticker)
             return action.history(period='1y')
         except Exception as e:
@@ -375,6 +395,8 @@ class AnalyseAction:
     def obtenir_nom_entreprise(ticker):
         """Récupère le nom complet de l'entreprise à partir du ticker"""
         try:
+            proxy = set_random_proxy()
+            logger.info(f"Proxy utilisé pour {ticker}: {proxy}")
             action = yf.Ticker(ticker)
             info = action.info
             if 'longName' in info:
