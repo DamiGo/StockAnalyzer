@@ -13,6 +13,8 @@ from datetime import datetime
 import logging
 import sys
 from template_mail import RapportHTML
+import requests
+from requests.adapters import HTTPAdapter
 
 # Configuration du logging
 logging.basicConfig(
@@ -41,12 +43,20 @@ PROXIES = cfg.get('proxies', [
     "http://proxy3.example.com:8080",
 ])
 
+# Session HTTP global avec pool plus large pour yfinance
+SESSION = requests.Session()
+adapter = HTTPAdapter(pool_connections=50, pool_maxsize=50)
+SESSION.mount("http://", adapter)
+SESSION.mount("https://", adapter)
+
 
 def set_random_proxy():
     """Choisit un proxy aléatoirement et le définit pour les requêtes"""
     proxy = random.choice(PROXIES)
     os.environ["HTTP_PROXY"] = proxy
     os.environ["HTTPS_PROXY"] = proxy
+    # Mise à jour de la session globale
+    SESSION.proxies.update({"http": proxy, "https": proxy})
     return proxy
 
 # Configuration SendGrid et emails
@@ -96,7 +106,7 @@ class IndicateursBoursiers:
         try:
             proxy = set_random_proxy()
             logger.info(f"Proxy utilisé pour {ticker}: {proxy}")
-            stock = yf.Ticker(ticker)
+            stock = yf.Ticker(ticker, session=SESSION)
             # Récupérer les données financières
             info = stock.info
 
@@ -149,7 +159,7 @@ class AnalyseAction:
         try:
             proxy = set_random_proxy()
             logger.info(f"Proxy utilisé pour {self.ticker}: {proxy}")
-            action = yf.Ticker(self.ticker)
+            action = yf.Ticker(self.ticker, session=SESSION)
             return action.history(period='1y')
         except Exception as e:
             logger.error(f"Erreur lors du téléchargement des données pour {self.ticker}: {e}")
@@ -406,7 +416,7 @@ class AnalyseAction:
         try:
             proxy = set_random_proxy()
             logger.info(f"Proxy utilisé pour {ticker}: {proxy}")
-            action = yf.Ticker(ticker)
+            action = yf.Ticker(ticker, session=SESSION)
             info = action.info
             if 'longName' in info:
                 return info['longName']
