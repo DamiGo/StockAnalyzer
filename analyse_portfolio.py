@@ -34,9 +34,10 @@ SESSION = requests.Session(impersonate="chrome")
 def set_random_proxy():
     """Choisit un proxy aléatoirement et le définit pour les requêtes."""
     if not USE_PROXIES:
-        # Nettoyer les éventuelles variables d'environnement
-        os.environ.pop("HTTP_PROXY", None)
-        os.environ.pop("HTTPS_PROXY", None)
+        # Nettoyer complètement les variables d'environnement pouvant indiquer
+        # l'utilisation d'un proxy
+        for var in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]:
+            os.environ.pop(var, None)
         SESSION.proxies.clear()
         return None
 
