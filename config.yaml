@@ -1,0 +1,57 @@
+# Configuration du portefeuille et des paramètres d'envoi
+email:
+  from: "xxx"
+  to: "xxx"
+  api_key: "xxx"
+
+portfolio:
+  - symbol: "ELIOR.PA"
+    name: "Elior"
+    purchase_price: 12.815
+    purchase_date: "2021-01-01"
+    quantity: 13
+  - symbol: "TFI.PA"
+    name: "TF1"
+    purchase_price: 10.397
+    purchase_date: "2021-01-01"
+    quantity: 15
+  - symbol: "DBV.PA"
+    name: "Derichebourg SA"
+    purchase_price: 7.838
+    purchase_date: "2021-01-01"
+    quantity: 40
+  - symbol: "0RSP.IL"
+    name: "Ayvens"
+    purchase_price: 9.521
+    purchase_date: "2021-01-01"
+    quantity: 44
+  - symbol: "0RSP.IL"
+    name: "Valeo SA"
+    purchase_price: 17.213
+    purchase_date: "2021-01-01"
+    quantity: 24
+  - symbol: "VRLA.PA"
+    name: "Verallia"
+    purchase_price: 37.803
+    purchase_date: "2021-01-01"
+    quantity: 11
+  - symbol: "ERA.PA"
+    name: "Eramet"
+    purchase_price: 55.06
+    purchase_date: "2025-02-12"
+    quantity: 9
+  - symbol:  "DEC.PA"
+    name: "JC DECAUX"
+    purchase_price: 15.44
+    purchase_date: "2025-02-21"
+    quantity: 32
+  - symbol:  "MRN.PA"
+    name: "Mersen"
+    purchase_price: 21.55
+    purchase_date: "2025-02-26"
+    quantity: 22
+  - symbol:  "EDEN.PA"
+    name: "Edenred"
+    purchase_price: 30.3619
+    purchase_date: "2025-04-01"
+    quantity: 16
