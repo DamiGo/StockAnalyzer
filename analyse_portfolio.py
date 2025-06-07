@@ -8,6 +8,7 @@ import os
 import random
 # Importer requests depuis curl_cffi pour pouvoir impersonnifier un navigateur
 from curl_cffi import requests
+import yfinance_cookie_patch
 
 # Chargement de la configuration globale et des proxies
 CONFIG_FILE = 'config.yaml'
@@ -29,6 +30,7 @@ USE_PROXIES = CFG.get('use_proxies', True)
 
 # Session HTTP global avec impersonation Chrome
 SESSION = requests.Session(impersonate="chrome")
+yfinance_cookie_patch.patch_yfdata_cookie_basic()
 
 
 def set_random_proxy():

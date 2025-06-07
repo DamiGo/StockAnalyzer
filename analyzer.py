@@ -16,6 +16,8 @@ from template_mail import RapportHTML
 # Utilisation de curl_cffi pour contourner les limitations de Yahoo Finance
 # cf. https://github.com/ranaroussi/yfinance/issues/2422#issuecomment-2840774505
 from curl_cffi import requests
+# Patch to ensure cookies are handled correctly when using curl_cffi
+import yfinance_cookie_patch
 
 # Configuration du logging
 logging.basicConfig(
@@ -48,6 +50,7 @@ USE_PROXIES = cfg.get('use_proxies', True)
 
 # Session HTTP global impersonant Chrome pour contourner les blocages
 SESSION = requests.Session(impersonate="chrome")
+yfinance_cookie_patch.patch_yfdata_cookie_basic()
 
 
 def set_random_proxy():
