@@ -5,7 +5,7 @@ import sys
 import importlib
 
 # Configuration
-REPO_URL = os.environ.get('REPO_URL', 'https://github.com/username/StockAnalyzer.git')
+REPO_URL = os.environ.get('REPO_URL', 'https://github.com/DamiGo/StockAnalyzer.git')
 REPO_DIR = os.environ.get('REPO_DIR', os.path.expanduser('~/StockAnalyzer'))
 
 logging.basicConfig(
