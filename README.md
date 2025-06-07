@@ -9,6 +9,7 @@ Ce projet contient plusieurs scripts Python permettant d'analyser des actions eu
   - `pandas`
   - `numpy`
   - `yfinance`
+  - `curl_cffi`  # pour contourner les limitations d'accès de Yahoo Finance
   - `sendgrid`
   - `schedule`
   - `pyyaml`
@@ -16,7 +17,7 @@ Ce projet contient plusieurs scripts Python permettant d'analyser des actions eu
 Installation rapide :
 
 ```bash
-pip install pandas numpy yfinance sendgrid schedule pyyaml
+pip install pandas numpy yfinance curl_cffi sendgrid schedule pyyaml
 ```
 
 ## Structure du projet
@@ -59,4 +60,8 @@ Cette dernière commande mettra à jour le dépôt depuis son origine puis exéc
 - `template_mail.py` est une librairie et n'est pas destiné à être exécuté directement.
 - Les logs des différents scripts sont généralement enregistrés dans des fichiers `.log` ou affichés sur la sortie standard pour faciliter le débogage.
 - Pensez à créer une tâche planifiée (cron ou autre) si vous souhaitez automatiser l'exécution quotidienne de `daily_update.py`.
+- En cas de problèmes de rate limit avec Yahoo Finance, le code utilise
+  `curl_cffi` pour ouvrir une session qui imite un navigateur Chrome et applique
+  un patch (`yfinance_cookie_patch.patch_yfdata_cookie_basic`) pour corriger la
+  gestion des cookies dans `yfinance`.
 

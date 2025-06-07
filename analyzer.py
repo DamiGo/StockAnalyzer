@@ -13,8 +13,11 @@ from datetime import datetime
 import logging
 import sys
 from template_mail import RapportHTML
-import requests
-from requests.adapters import HTTPAdapter
+# Utilisation de curl_cffi pour contourner les limitations de Yahoo Finance
+# cf. https://github.com/ranaroussi/yfinance/issues/2422#issuecomment-2840774505
+from curl_cffi import requests
+# Patch to ensure cookies are handled correctly when using curl_cffi
+import yfinance_cookie_patch
 
 # Configuration du logging
 logging.basicConfig(
@@ -45,18 +48,17 @@ PROXIES = cfg.get('proxies', [
 # Possibilité de désactiver complètement l'utilisation des proxies
 USE_PROXIES = cfg.get('use_proxies', True)
 
-# Session HTTP global avec pool plus large pour yfinance
-SESSION = requests.Session()
-adapter = HTTPAdapter(pool_connections=50, pool_maxsize=50)
-SESSION.mount("http://", adapter)
-SESSION.mount("https://", adapter)
+# Session HTTP global impersonant Chrome pour contourner les blocages
+SESSION = requests.Session(impersonate="chrome")
+yfinance_cookie_patch.patch_yfdata_cookie_basic()
 
 
 def set_random_proxy():
     """Choisit un proxy aléatoirement et le définit pour les requêtes"""
     if not USE_PROXIES:
-        os.environ.pop("HTTP_PROXY", None)
-        os.environ.pop("HTTPS_PROXY", None)
+        # Remove any proxy environment variables that might be set globally
+        for var in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]:
+            os.environ.pop(var, None)
         SESSION.proxies.clear()
         return None
 
