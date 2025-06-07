@@ -6,10 +6,8 @@ import pandas as pd
 import numpy as np
 import concurrent.futures
 from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, Email, To, Content, HtmlContent
-import json
-import schedule
-import time
+from sendgrid.helpers.mail import Mail, Email, To, HtmlContent
+import yaml
 import random
 from datetime import datetime
 import logging
@@ -28,16 +26,16 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Chargement de la configuration externe
-CONFIG_FILE = 'config.json'
+CONFIG_FILE = 'config.yaml'
 try:
     with open(CONFIG_FILE, 'r') as f:
-        cfg = json.load(f)
+        cfg = yaml.safe_load(f)
 except Exception as e:
     logger.error(f"Erreur lors du chargement du fichier de configuration: {e}")
     cfg = {}
 
 # Liste de proxies HTTP pour contourner d'éventuels blocages
-PROXIES = cfg.get('PROXIES', [
+PROXIES = cfg.get('proxies', [
     "http://proxy1.example.com:8080",
     "http://proxy2.example.com:8080",
     "http://proxy3.example.com:8080",
@@ -52,9 +50,10 @@ def set_random_proxy():
     return proxy
 
 # Configuration SendGrid et emails
-SENDGRID_API_KEY = cfg.get('SENDGRID_API_KEY', 'xxx')
-FROM_EMAIL = cfg.get('FROM_EMAIL', 'xxx')
-TO_EMAIL = cfg.get('TO_EMAIL', 'xxx')
+email_cfg = cfg.get('email', {}) if isinstance(cfg, dict) else {}
+SENDGRID_API_KEY = email_cfg.get('api_key', 'xxx')
+FROM_EMAIL = email_cfg.get('from', 'xxx')
+TO_EMAIL = email_cfg.get('to', 'xxx')
 
 class IndicateursBoursiers:
     @staticmethod

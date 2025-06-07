@@ -4,6 +4,11 @@ email:
   to: "xxx"
   api_key: "xxx"
 
+proxies:
+  - "http://proxy1.example.com:8080"
+  - "http://proxy2.example.com:8080"
+  - "http://proxy3.example.com:8080"
+
 portfolio:
   - symbol: "ELIOR.PA"
     name: "Elior"
