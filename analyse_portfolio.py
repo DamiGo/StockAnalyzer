@@ -4,6 +4,32 @@ import yfinance as yf
 from datetime import datetime, timedelta
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
+import os
+import random
+
+# Chargement de la configuration globale et des proxies
+CONFIG_FILE = 'config.yaml'
+try:
+    with open(CONFIG_FILE, 'r') as f:
+        CFG = yaml.safe_load(f)
+except Exception as e:
+    print(f"Erreur lors du chargement du fichier de configuration: {e}")
+    CFG = {}
+
+# Liste de proxies HTTP similaire à celle utilisée dans analyzer.py
+PROXIES = CFG.get('proxies', [
+    "http://proxy1.example.com:8080",
+    "http://proxy2.example.com:8080",
+    "http://proxy3.example.com:8080",
+])
+
+
+def set_random_proxy():
+    """Choisit un proxy aléatoirement et le définit pour les requêtes."""
+    proxy = random.choice(PROXIES)
+    os.environ["HTTP_PROXY"] = proxy
+    os.environ["HTTPS_PROXY"] = proxy
+    return proxy
 
 class PortfolioUtils:
     @staticmethod
@@ -37,6 +63,8 @@ class PortfolioAnalyzer:
     def get_stock_analysis(self, symbol, purchase_info, periods):
         """Analyse une action et retourne ses variations sur différentes périodes."""
         try:
+            proxy = set_random_proxy()
+            print(f"Proxy utilisé pour {symbol}: {proxy}")
             stock = yf.Ticker(symbol)
             end_date = datetime.now()
 
