@@ -25,13 +25,13 @@ pip install pandas numpy yfinance sendgrid schedule pyyaml
 - **`analyzer.py`** : recherche des opportunités d'achat sur plusieurs places boursières européennes puis envoie un résumé par e‑mail.
 - **`daily_update.py`** : met à jour automatiquement le dépôt (pull Git) puis lance `analyse_portfolio.py` et `analyzer.py`.
 - **`template_mail.py`** : contient le modèle HTML utilisé pour formater les e‑mails.
-- **`config.yaml`** : configuration du portefeuille et informations d'envoi pour `analyse_portfolio.py`.
+- **`config.yaml`** : configuration du portefeuille, des proxies et informations d'envoi pour `analyse_portfolio.py`.
 - **`config.json`** : configuration générale (proxies, clé SendGrid, adresses e‑mail) utilisée par `analyzer.py`.
 
 ## Utilisation des scripts
 
 1. **Configurer les fichiers de configuration**
-   - Remplir `config.yaml` avec vos actions, votre clé SendGrid et les adresses e‑mail expéditrice/destinataire.
+   - Remplir `config.yaml` avec vos actions, vos proxies éventuels, votre clé SendGrid et les adresses e‑mail expéditrice/destinataire.
    - Mettre à jour `config.json` avec votre clé SendGrid (si différente), vos proxies éventuels et les adresses e‑mail.
 
 2. **Lancer l'analyse du portefeuille**
