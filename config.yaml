@@ -4,6 +4,9 @@ email:
   to: "xxx"
   api_key: "xxx"
 
+# Active ou désactive l'utilisation des proxies HTTP
+use_proxies: true
+
 proxies:
   - "http://proxy1.example.com:8080"
   - "http://proxy2.example.com:8080"

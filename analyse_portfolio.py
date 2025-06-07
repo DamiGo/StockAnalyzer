@@ -22,10 +22,18 @@ PROXIES = CFG.get('proxies', [
     "http://proxy2.example.com:8080",
     "http://proxy3.example.com:8080",
 ])
+# Possibilité de désactiver complètement l'utilisation des proxies
+USE_PROXIES = CFG.get('use_proxies', True)
 
 
 def set_random_proxy():
     """Choisit un proxy aléatoirement et le définit pour les requêtes."""
+    if not USE_PROXIES:
+        # Nettoyer les éventuelles variables d'environnement
+        os.environ.pop("HTTP_PROXY", None)
+        os.environ.pop("HTTPS_PROXY", None)
+        return None
+
     proxy = random.choice(PROXIES)
     os.environ["HTTP_PROXY"] = proxy
     os.environ["HTTPS_PROXY"] = proxy
@@ -64,7 +72,8 @@ class PortfolioAnalyzer:
         """Analyse une action et retourne ses variations sur différentes périodes."""
         try:
             proxy = set_random_proxy()
-            print(f"Proxy utilisé pour {symbol}: {proxy}")
+            if proxy:
+                print(f"Proxy utilisé pour {symbol}: {proxy}")
             stock = yf.Ticker(symbol)
             end_date = datetime.now()
 
