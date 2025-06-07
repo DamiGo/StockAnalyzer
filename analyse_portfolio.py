@@ -1,11 +1,9 @@
 # analyse_portfolio.py
-import os
 import yaml
 import yfinance as yf
 from datetime import datetime, timedelta
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
-import pandas as pd
 
 class PortfolioUtils:
     @staticmethod

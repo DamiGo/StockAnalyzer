@@ -14,27 +14,27 @@ logging.basicConfig(
 )
 
 def _backup_config():
-    """Return the current config.json content if it exists."""
-    cfg_path = os.path.join(REPO_DIR, 'config.json')
+    """Return the current config.yaml content if it exists."""
+    cfg_path = os.path.join(REPO_DIR, 'config.yaml')
     if os.path.isfile(cfg_path):
-        logging.info('Backing up local config.json')
+        logging.info('Backing up local config.yaml')
         with open(cfg_path, 'rb') as f:
             return f.read()
     return None
 
 
 def _restore_config(data):
-    """Restore the saved config.json content if provided."""
+    """Restore the saved config.yaml content if provided."""
     if data is None:
         return
-    cfg_path = os.path.join(REPO_DIR, 'config.json')
-    logging.info('Restoring local config.json')
+    cfg_path = os.path.join(REPO_DIR, 'config.yaml')
+    logging.info('Restoring local config.yaml')
     with open(cfg_path, 'wb') as f:
         f.write(data)
 
 
 def update_repo():
-    """Clone or update the repository without overwriting config.json."""
+    """Clone or update the repository without overwriting config.yaml."""
     backup = _backup_config()
     if not os.path.isdir(REPO_DIR):
         logging.info('Cloning repository %s into %s', REPO_URL, REPO_DIR)
