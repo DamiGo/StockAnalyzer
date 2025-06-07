@@ -6,6 +6,8 @@ from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 import os
 import random
+# Importer requests depuis curl_cffi pour pouvoir impersonnifier un navigateur
+from curl_cffi import requests
 
 # Chargement de la configuration globale et des proxies
 CONFIG_FILE = 'config.yaml'
@@ -25,6 +27,9 @@ PROXIES = CFG.get('proxies', [
 # Possibilité de désactiver complètement l'utilisation des proxies
 USE_PROXIES = CFG.get('use_proxies', True)
 
+# Session HTTP global avec impersonation Chrome
+SESSION = requests.Session(impersonate="chrome")
+
 
 def set_random_proxy():
     """Choisit un proxy aléatoirement et le définit pour les requêtes."""
@@ -32,11 +37,13 @@ def set_random_proxy():
         # Nettoyer les éventuelles variables d'environnement
         os.environ.pop("HTTP_PROXY", None)
         os.environ.pop("HTTPS_PROXY", None)
+        SESSION.proxies.clear()
         return None
 
     proxy = random.choice(PROXIES)
     os.environ["HTTP_PROXY"] = proxy
     os.environ["HTTPS_PROXY"] = proxy
+    SESSION.proxies.update({"http": proxy, "https": proxy})
     return proxy
 
 class PortfolioUtils:
@@ -74,7 +81,7 @@ class PortfolioAnalyzer:
             proxy = set_random_proxy()
             if proxy:
                 print(f"Proxy utilisé pour {symbol}: {proxy}")
-            stock = yf.Ticker(symbol)
+            stock = yf.Ticker(symbol, session=SESSION)
             end_date = datetime.now()
 
             purchase_date = datetime.strptime(purchase_info['purchase_date'], '%Y-%m-%d')
