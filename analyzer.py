@@ -656,8 +656,6 @@ def tache_journaliere():
     except Exception as e:
         logger.error(f"Erreur lors de l'exécution de la tâche journalière: {e}", exc_info=True)
 
-    os.system('python analyse_portfolio.py')
-
 def main():
     """Fonction principale"""
     logger.info("Démarrage du programme")
