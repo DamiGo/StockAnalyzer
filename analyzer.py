@@ -42,6 +42,8 @@ PROXIES = cfg.get('proxies', [
     "http://proxy2.example.com:8080",
     "http://proxy3.example.com:8080",
 ])
+# Possibilité de désactiver complètement l'utilisation des proxies
+USE_PROXIES = cfg.get('use_proxies', True)
 
 # Session HTTP global avec pool plus large pour yfinance
 SESSION = requests.Session()
@@ -52,6 +54,12 @@ SESSION.mount("https://", adapter)
 
 def set_random_proxy():
     """Choisit un proxy aléatoirement et le définit pour les requêtes"""
+    if not USE_PROXIES:
+        os.environ.pop("HTTP_PROXY", None)
+        os.environ.pop("HTTPS_PROXY", None)
+        SESSION.proxies.clear()
+        return None
+
     proxy = random.choice(PROXIES)
     os.environ["HTTP_PROXY"] = proxy
     os.environ["HTTPS_PROXY"] = proxy
@@ -105,7 +113,8 @@ class IndicateursBoursiers:
         """Calcule le ratio PEG (Price/Earnings to Growth) pour un ticker avec gestion améliorée des erreurs"""
         try:
             proxy = set_random_proxy()
-            logger.info(f"Proxy utilisé pour {ticker}: {proxy}")
+            if proxy:
+                logger.info(f"Proxy utilisé pour {ticker}: {proxy}")
             stock = yf.Ticker(ticker, session=SESSION)
             # Récupérer les données financières
             info = stock.info
@@ -158,7 +167,8 @@ class AnalyseAction:
         """Télécharge les données historiques de l'action"""
         try:
             proxy = set_random_proxy()
-            logger.info(f"Proxy utilisé pour {self.ticker}: {proxy}")
+            if proxy:
+                logger.info(f"Proxy utilisé pour {self.ticker}: {proxy}")
             action = yf.Ticker(self.ticker, session=SESSION)
             return action.history(period='1y')
         except Exception as e:
@@ -415,7 +425,8 @@ class AnalyseAction:
         """Récupère le nom complet de l'entreprise à partir du ticker"""
         try:
             proxy = set_random_proxy()
-            logger.info(f"Proxy utilisé pour {ticker}: {proxy}")
+            if proxy:
+                logger.info(f"Proxy utilisé pour {ticker}: {proxy}")
             action = yf.Ticker(ticker, session=SESSION)
             info = action.info
             if 'longName' in info:
