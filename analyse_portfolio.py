@@ -3,12 +3,25 @@ import yaml
 import yfinance as yf
 from datetime import datetime, timedelta
 from sendgrid import SendGridAPIClient
+# Importer requests depuis curl_cffi pour pouvoir impersonnifier un navigateur
 from sendgrid.helpers.mail import Mail
 import os
 import random
+import logging
 # Importer requests depuis curl_cffi pour pouvoir impersonnifier un navigateur
 from curl_cffi import requests
 import yfinance_cookie_patch
+
+# Configuration du logging pour tracer les problèmes de récupération de données
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('portfolio_analysis.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # Chargement de la configuration globale et des proxies
 CONFIG_FILE = 'config.yaml'
@@ -41,12 +54,14 @@ def set_random_proxy():
         for var in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]:
             os.environ.pop(var, None)
         SESSION.proxies.clear()
+        logger.info("Utilisation des proxies désactivée")
         return None
 
     proxy = random.choice(PROXIES)
     os.environ["HTTP_PROXY"] = proxy
     os.environ["HTTPS_PROXY"] = proxy
     SESSION.proxies.update({"http": proxy, "https": proxy})
+    logger.info(f"Proxy choisi: {proxy}")
     return proxy
 
 class PortfolioUtils:
@@ -83,7 +98,7 @@ class PortfolioAnalyzer:
         try:
             proxy = set_random_proxy()
             if proxy:
-                print(f"Proxy utilisé pour {symbol}: {proxy}")
+                logger.info(f"Proxy utilisé pour {symbol}: {proxy}")
             stock = yf.Ticker(symbol, session=SESSION)
             end_date = datetime.now()
 
@@ -91,17 +106,27 @@ class PortfolioAnalyzer:
             max_period = max(periods)
             start_date = min(purchase_date, end_date - timedelta(days=max_period))
 
-            # Utiliser period="2d" pour s'assurer d'avoir les données les plus récentes pour la variation sur 1 jour
-            hist_recent = stock.history(period="2d")
-
-            # Récupérer l'historique complet pour les autres périodes
-            hist = stock.history(start=start_date, end=end_date)
-
-            if hist.empty:
-                print(f"Pas de données historiques pour {symbol}")
+            logger.info(f"Téléchargement des données récentes pour {symbol}")
+            try:
+                hist_recent = stock.history(period="2d")
+                logger.info(f"{len(hist_recent)} lignes reçues pour les données récentes de {symbol}")
+            except Exception as e:
+                logger.error(f"Erreur lors du téléchargement des données récentes pour {symbol}: {e}", exc_info=True)
                 return None
 
-            current_price = hist['Close'][-1]
+            logger.info(f"Téléchargement de l'historique complet pour {symbol} de {start_date.date()} à {end_date.date()}")
+            try:
+                hist = stock.history(start=start_date, end=end_date)
+                logger.info(f"{len(hist)} lignes reçues pour l'historique complet de {symbol}")
+            except Exception as e:
+                logger.error(f"Erreur lors du téléchargement de l'historique pour {symbol}: {e}", exc_info=True)
+                return None
+
+            if hist.empty:
+                logger.warning(f"Pas de données historiques pour {symbol}")
+                return None
+            
+            current_price = hist['Close'].iloc[-1]
             purchase_price = purchase_info['purchase_price']
 
             analysis = {
@@ -118,12 +143,14 @@ class PortfolioAnalyzer:
 
             # Calculer explicitement la variation sur 1 jour
             if len(hist_recent) >= 2:
-                yesterday_price = hist_recent['Close'][-2]
-                today_price = hist_recent['Close'][-1]
+                yesterday_price = hist_recent['Close'].iloc[-2]
+                today_price = hist_recent['Close'].iloc[-1]
                 daily_variation = ((today_price - yesterday_price) / yesterday_price) * 100
                 analysis['variations'][1] = daily_variation
             else:
-                print(f"Impossible de calculer la variation quotidienne pour {symbol}, données insuffisantes")
+                msg = f"Impossible de calculer la variation quotidienne pour {symbol}, données insuffisantes"
+                print(msg)
+                logger.warning(msg)
                 analysis['variations'][1] = 0.0  # Valeur par défaut
 
             # Calculer les autres périodes
@@ -204,8 +231,11 @@ class PortfolioAnalyzer:
                 }
                 portfolio_data.append(stock_data)
                 print(f"✓ {stock['symbol']} analysé avec succès")
+                logger.info(f"Analyse réussie pour {stock['symbol']}")
             else:
-                print(f"✗ Impossible d'analyser {stock['symbol']}")
+                msg = f"Impossible d'analyser {stock['symbol']}"
+                print(f"✗ {msg}")
+                logger.warning(msg)
 
         return portfolio_data, config
 

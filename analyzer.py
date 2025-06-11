@@ -172,9 +172,14 @@ class AnalyseAction:
             if proxy:
                 logger.info(f"Proxy utilisé pour {self.ticker}: {proxy}")
             action = yf.Ticker(self.ticker, session=SESSION)
-            return action.history(period='1y')
+            historique = action.history(period='1y')
+            if historique.empty:
+                logger.warning(f"Aucune donnée récupérée pour {self.ticker}")
+            else:
+                logger.info(f"{len(historique)} lignes téléchargées pour {self.ticker}")
+            return historique
         except Exception as e:
-            logger.error(f"Erreur lors du téléchargement des données pour {self.ticker}: {e}")
+            logger.error(f"Erreur lors du téléchargement des données pour {self.ticker}: {e}", exc_info=True)
             return None
 
     def calculer_prix_achat_cible(self, historique, mm):
