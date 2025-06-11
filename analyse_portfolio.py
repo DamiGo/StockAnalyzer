@@ -13,15 +13,14 @@ from curl_cffi import requests
 import yfinance_cookie_patch
 
 # Configuration du logging pour tracer les problèmes de récupération de données
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('portfolio_analysis.log'),
-        logging.StreamHandler()
-    ]
-)
 logger = logging.getLogger(__name__)
+if not logger.handlers:
+    logger.setLevel(logging.INFO)
+    handler = logging.FileHandler('portfolio_analysis.log')
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+logger.propagate = False
 
 # Chargement de la configuration globale et des proxies
 CONFIG_FILE = 'config.yaml'
@@ -29,7 +28,7 @@ try:
     with open(CONFIG_FILE, 'r') as f:
         CFG = yaml.safe_load(f)
 except Exception as e:
-    print(f"Erreur lors du chargement du fichier de configuration: {e}")
+    logger.error("Erreur lors du chargement du fichier de configuration: %s", e)
     CFG = {}
 
 # Liste de proxies HTTP similaire à celle utilisée dans analyzer.py
@@ -149,7 +148,6 @@ class PortfolioAnalyzer:
                 analysis['variations'][1] = daily_variation
             else:
                 msg = f"Impossible de calculer la variation quotidienne pour {symbol}, données insuffisantes"
-                print(msg)
                 logger.warning(msg)
                 analysis['variations'][1] = 0.0  # Valeur par défaut
 
@@ -162,12 +160,12 @@ class PortfolioAnalyzer:
                     variation = ((current_price - old_price) / old_price) * 100
                     analysis['variations'][period] = variation
                 else:
-                    print(f"Période {period} jours non disponible pour {symbol}")
+                    logger.warning("Période %d jours non disponible pour %s", period, symbol)
                     analysis['variations'][period] = 0.0  # Valeur par défaut
 
             return analysis
         except Exception as e:
-            print(f"Erreur lors de l'analyse de {symbol}: {str(e)}")
+            logger.error("Erreur lors de l'analyse de %s: %s", symbol, str(e))
             return None
 
     def get_recommendation(self, variations, purchase_variation):
@@ -201,9 +199,9 @@ class PortfolioAnalyzer:
         portfolio_data = []
         periods = [1, 90, 180]
 
-        print("\nAnalyse du portefeuille...")
+        logger.info("Analyse du portefeuille...")
         for stock in config['portfolio']:
-            print(f"\nAnalyse de {stock['symbol']}...")
+            logger.info("Analyse de %s...", stock['symbol'])
             purchase_info = {
                 'purchase_price': stock['purchase_price'],
                 'purchase_date': stock['purchase_date'],
@@ -230,11 +228,9 @@ class PortfolioAnalyzer:
                     )
                 }
                 portfolio_data.append(stock_data)
-                print(f"✓ {stock['symbol']} analysé avec succès")
-                logger.info(f"Analyse réussie pour {stock['symbol']}")
+                logger.info("%s analysé avec succès", stock['symbol'])
             else:
                 msg = f"Impossible d'analyser {stock['symbol']}"
-                print(f"✗ {msg}")
                 logger.warning(msg)
 
         return portfolio_data, config
@@ -555,12 +551,12 @@ def send_email(from_email, to_email, subject, html_content, api_key):
         response = sg.send(message)
         return True
     except Exception as e:
-        print(f"Erreur lors de l'envoi de l'email: {str(e)}")
+        logger.error("Erreur lors de l'envoi de l'email: %s", str(e))
         return False
 
 def main():
     try:
-        print("Initialisation de l'analyse...")
+        logger.info("Initialisation de l'analyse...")
         utils = PortfolioUtils()
         analyzer = PortfolioAnalyzer(utils)
         report_generator = HTMLReportGenerator(utils)
@@ -568,13 +564,13 @@ def main():
         portfolio_data, config = analyzer.analyze_portfolio()
 
         if not portfolio_data:
-            print("\nErreur: Aucune donnée de portefeuille n'a pu être récupérée!")
+            logger.error("Aucune donnée de portefeuille n'a pu être récupérée !")
             return
 
-        print("\nGénération du rapport...")
+        logger.info("Génération du rapport...")
         html_report = report_generator.generate_html_report(portfolio_data)
 
-        print("\nEnvoi du rapport par email...")
+        logger.info("Envoi du rapport par email...")
         success = send_email(
             config['email']['from'],
             config['email']['to'],
@@ -584,12 +580,12 @@ def main():
         )
 
         if success:
-            print("\n✓ Rapport envoyé avec succès!")
+            logger.info("Rapport envoyé avec succès")
         else:
-            print("\n✗ Échec de l'envoi du rapport")
+            logger.error("Échec de l'envoi du rapport")
 
     except Exception as e:
-        print(f"\nUne erreur est survenue: {str(e)}")
+        logger.error("Une erreur est survenue: %s", str(e))
         raise
 
 if __name__ == "__main__":
