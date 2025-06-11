@@ -44,17 +44,31 @@ def update_repo():
         subprocess.run(['git', '-C', REPO_DIR, 'pull'], check=True)
     _restore_config(backup)
 
+_portfolio_ran = False
+
+
 def run_portfolio_report():
-    """Run the daily portfolio report if available."""
+    """Run the daily portfolio report exactly once."""
+    global _portfolio_ran
+    if _portfolio_ran:
+        logging.info('Portfolio report already executed; skipping.')
+        return
+
     try:
         sys.path.insert(0, REPO_DIR)
         module = importlib.import_module('analyse_portfolio')
+
         if hasattr(module, 'rapport_quotidien'):
             module.rapport_quotidien()
         elif hasattr(module, 'main'):
             module.main()
         else:
-            subprocess.run(['python', os.path.join(REPO_DIR, 'analyse_portfolio.py')], check=True)
+            subprocess.run([
+                'python',
+                os.path.join(REPO_DIR, 'analyse_portfolio.py')
+            ], check=True)
+
+        _portfolio_ran = True
     except ModuleNotFoundError:
         logging.warning('Module analyse_portfolio not found; skipping portfolio report.')
     except Exception as exc:
