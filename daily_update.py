@@ -89,6 +89,12 @@ def run_stock_analysis():
 
 def main():
     update_repo()
+    try:
+        sys.path.insert(0, REPO_DIR)
+        import proxy_tester
+        proxy_tester.main(os.path.join(REPO_DIR, 'config.yaml'))
+    except Exception as exc:
+        logger.error('Erreur lors de la mise à jour des proxies: %s', exc)
     run_portfolio_report()
     run_stock_analysis()
 

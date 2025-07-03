@@ -1,8 +1,9 @@
-import base64
 import logging
 import re
+import sys
 from typing import List
 
+import yaml
 import requests
 from bs4 import BeautifulSoup
 
@@ -17,37 +18,85 @@ if not logger.handlers:
 logger.propagate = False
 
 
-URL = "http://free-proxy.cz/en/proxylist/country/all/https/date/all"
 HEADERS = {"User-Agent": "Mozilla/5.0"}
+FREE_PROXY_LIST_URL = "https://free-proxy-list.net/"
+GEONODE_URL = (
+    "https://proxylist.geonode.com/api/proxy-list?limit=200&sort_by=lastChecked"
+    "&sort_type=desc&protocols=https"
+)
+SCRAPINGANT_URL = "https://scrapingant.com/free-proxies/"
 TEST_URL = "https://httpbin.org/ip"
 
 
-def fetch_proxies() -> List[str]:
-    """Return a list of proxies ("ip:port") from free-proxy.cz."""
-    logger.info("Fetching proxy list from %s", URL)
-    response = requests.get(URL, headers=HEADERS, timeout=10)
+def _fetch_from_free_proxy_list() -> List[str]:
+    """Return proxies from free-proxy-list.net."""
+    logger.info("Fetching proxy list from %s", FREE_PROXY_LIST_URL)
+    response = requests.get(FREE_PROXY_LIST_URL, headers=HEADERS, timeout=10)
     response.raise_for_status()
 
     soup = BeautifulSoup(response.text, "html.parser")
     proxies = []
 
-    rows = soup.select("table#proxy_list tbody tr")
-    for row in rows:
-        script_ip = row.select_one("td:nth-child(1) script")
-        port_cell = row.select_one("td:nth-child(2)")
-        if not script_ip or not port_cell:
-            continue
+    for row in soup.select("table#proxylisttable tbody tr"):
+        cols = [c.text.strip() for c in row.find_all("td")]
+        if len(cols) >= 7 and cols[6].lower() == "yes":
+            proxies.append(f"{cols[0]}:{cols[1]}")
 
-        match = re.search(r'Base64.decode\("([A-Za-z0-9+/=]+)"\)', script_ip.text)
-        if not match:
-            continue
-
-        ip = base64.b64decode(match.group(1)).decode("utf-8")
-        port = port_cell.text.strip()
-        proxies.append(f"{ip}:{port}")
-
-    logger.info("Found %d proxies", len(proxies))
+    logger.info("Found %d proxies on free-proxy-list.net", len(proxies))
     return proxies
+
+
+def _fetch_from_geonode() -> List[str]:
+    """Return proxies from geonode.com (HTTPS only)."""
+    logger.info("Fetching proxy list from geonode")
+    response = requests.get(GEONODE_URL, headers=HEADERS, timeout=10)
+    response.raise_for_status()
+
+    data = response.json()
+    proxies = [f"{p['ip']}:{p['port']}" for p in data.get("data", [])]
+
+    logger.info("Found %d proxies on geonode", len(proxies))
+    return proxies
+
+
+def _fetch_from_scrapingant() -> List[str]:
+    """Return proxies from scrapingant.com (HTTPS)."""
+    logger.info("Fetching proxy list from scrapingant")
+    response = requests.get(SCRAPINGANT_URL, headers=HEADERS, timeout=10)
+    response.raise_for_status()
+
+    soup = BeautifulSoup(response.text, "html.parser")
+    proxies = []
+    for row in soup.select("table tbody tr"):
+        cols = [c.text.strip() for c in row.find_all("td")]
+        if len(cols) >= 3 and "https" in cols[2].lower():
+            proxies.append(f"{cols[0]}:{cols[1]}")
+
+    logger.info("Found %d proxies on scrapingant", len(proxies))
+    return proxies
+
+
+def fetch_proxies() -> List[str]:
+    """Return a combined list of proxies from multiple sources."""
+    proxies: List[str] = []
+    try:
+        proxies.extend(_fetch_from_free_proxy_list())
+    except Exception as exc:
+        logger.warning("free-proxy-list.net fetch failed: %s", exc)
+
+    try:
+        proxies.extend(_fetch_from_geonode())
+    except Exception as exc:
+        logger.warning("geonode fetch failed: %s", exc)
+
+    try:
+        proxies.extend(_fetch_from_scrapingant())
+    except Exception as exc:
+        logger.warning("scrapingant fetch failed: %s", exc)
+
+    unique_proxies = list(dict.fromkeys(proxies))
+    logger.info("Total proxies fetched: %d", len(unique_proxies))
+    return unique_proxies
 
 
 def test_proxy(proxy: str) -> bool:
@@ -61,7 +110,24 @@ def test_proxy(proxy: str) -> bool:
         return False
 
 
-def main():
+def update_config(proxies: List[str], config_path: str = "config.yaml") -> None:
+    """Update the YAML configuration file with the working proxies."""
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+    except FileNotFoundError:
+        cfg = {}
+
+    cfg["proxies"] = proxies
+
+    with open(config_path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(cfg, f, sort_keys=False, allow_unicode=True)
+
+    logger.info("Configuration updated with %d proxies", len(proxies))
+
+
+def main(config_path: str = "config.yaml") -> None:
+    """Fetch proxies, test them and update the config file."""
     proxies = fetch_proxies()
     ok, ko = [], []
     for proxy in proxies:
@@ -72,6 +138,8 @@ def main():
             logger.info("[KO] %s", proxy)
             ko.append(proxy)
 
+    update_config(ok, config_path)
+
     print("\n=== Working proxies ===")
     for p in ok:
         print(p)
@@ -81,4 +149,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    config_arg = sys.argv[1] if len(sys.argv) > 1 else "config.yaml"
+    main(config_arg)
