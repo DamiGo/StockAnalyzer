@@ -13,6 +13,7 @@ from datetime import datetime
 import logging
 import sys
 from template_mail import RapportHTML
+from cache_utils import load_cached_data, save_to_cache
 # Utilisation de curl_cffi pour contourner les limitations de Yahoo Finance
 # cf. https://github.com/ranaroussi/yfinance/issues/2422#issuecomment-2840774505
 from curl_cffi import requests
@@ -176,15 +177,23 @@ class AnalyseAction:
     def _telecharger_donnees(self):
         """Télécharge les données historiques de l'action"""
         try:
+            # Vérifier si des données récentes sont disponibles en cache
+            historique = load_cached_data(self.ticker, '1y')
+            if historique is not None:
+                return historique
+
             proxy = set_random_proxy()
             if proxy:
                 logger.info(f"Proxy utilisé pour {self.ticker}: {proxy}")
+
             action = yf.Ticker(self.ticker, session=SESSION)
             historique = action.history(period='1y')
             if historique.empty:
                 logger.warning(f"Aucune donnée récupérée pour {self.ticker}")
             else:
                 logger.info(f"{len(historique)} lignes téléchargées pour {self.ticker}")
+                save_to_cache(self.ticker, '1y', historique)
+
             return historique
         except Exception as e:
             logger.error(f"Erreur lors du téléchargement des données pour {self.ticker}: {e}", exc_info=True)
