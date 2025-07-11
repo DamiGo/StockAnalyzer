@@ -83,6 +83,9 @@ BOLLINGER_THRESHOLD = threshold_cfg.get('bollinger_threshold', 0.05)
 PEG_MAX = threshold_cfg.get('peg_max', 1)
 MIN_OPPORTUNITY_SCORE = threshold_cfg.get('min_opportunity_score', 0.5)
 
+# Chargement des poids associés à chaque signal technique
+SIGNAL_WEIGHTS = cfg.get('signal_weights', {}) if isinstance(cfg, dict) else {}
+
 class IndicateursBoursiers:
     @staticmethod
     def calculer_rsi(prix, periode=14):
@@ -321,20 +324,24 @@ class AnalyseAction:
                     'RSI': False, 'Tendance': False, 'Bollinger': False, 'PEG': False
                 }
 
-            # Vérification de la présence de tous les signaux attendus
-            expected_signals = {'MACD', 'MM_20_50', 'MM_50_200', 'RSI', 'Tendance', 'Bollinger', 'PEG'}
-            for signal_name in expected_signals:
-                if signal_name not in signaux:
-                    logger.warning(f"Signal manquant: {signal_name} pour {self.ticker}")
-                    signaux[signal_name] = False
+            # Déterminer dynamiquement la liste des signaux disponibles
+            expected_signals = set(signaux.keys())
 
-            # Calcul du score d'opportunité
-            nombre_total_signaux = len(expected_signals)
-            signaux_positifs = sum(1 for v in signaux.values() if v)
-            score_opportunite = signaux_positifs / nombre_total_signaux
+            # Calcul du score d'opportunité en fonction des poids configurés
+            total_poids = sum(SIGNAL_WEIGHTS.get(sig, 1.0) for sig in expected_signals)
+            poids_positifs = sum(
+                SIGNAL_WEIGHTS.get(sig, 1.0) for sig, v in signaux.items() if v
+            )
+            if total_poids == 0:
+                score_opportunite = 0
+            else:
+                score_opportunite = poids_positifs / total_poids
 
             # Log du score pour debug
-            logger.info(f"Score d'opportunité pour {self.ticker}: {score_opportunite} ({signaux_positifs}/{nombre_total_signaux})")
+            logger.info(
+                f"Score d'opportunité pour {self.ticker}: {score_opportunite} "
+                f"({poids_positifs}/{total_poids})"
+            )
 
             # Filtrage des opportunités intéressantes
             if score_opportunite <= MIN_OPPORTUNITY_SCORE or gain_potentiel <= 0:

@@ -26,13 +26,14 @@ pip install pandas numpy yfinance curl_cffi sendgrid schedule pyyaml
 - **`analyzer.py`** : recherche des opportunités d'achat sur plusieurs places boursières européennes puis envoie un résumé par e‑mail.
 - **`daily_update.py`** : met à jour automatiquement le dépôt (pull Git) puis lance `analyse_portfolio.py` et `analyzer.py`.
 - **`template_mail.py`** : contient le modèle HTML utilisé pour formater les e‑mails.
-- **`config.yaml`** : configuration du portefeuille, des proxies et informations d'envoi pour `analyse_portfolio.py`. Le fichier contient également un paramètre `use_proxies` pour désactiver les proxies et une section `thresholds` afin d'ajuster les seuils techniques utilisés par `analyzer.py`.
+- **`config.yaml`** : configuration du portefeuille, des proxies et informations d'envoi pour `analyse_portfolio.py`. Le fichier contient également un paramètre `use_proxies` pour désactiver les proxies, une section `thresholds` pour ajuster les seuils techniques utilisés par `analyzer.py` ainsi qu'un dictionnaire `signal_weights` permettant de pondérer chaque signal technique.
 - **`config.json`** : configuration générale (proxies, clé SendGrid, adresses e‑mail) utilisée par `analyzer.py`.
 
 ## Utilisation des scripts
 
 1. **Configurer les fichiers de configuration**
-   - Remplir `config.yaml` avec vos actions, votre clé SendGrid et les adresses e‑mail expéditrice/destinataire. Vous pouvez renseigner une liste de proxies et définir `use_proxies: false` pour les désactiver. La section `thresholds` permet de modifier les bornes du RSI, la marge autour des moyennes mobiles ou encore le score minimal retenu par `analyzer.py`.
+   - Remplir `config.yaml` avec vos actions, votre clé SendGrid et les adresses e‑mail expéditrice/destinataire. Vous pouvez renseigner une liste de proxies et définir `use_proxies: false` pour les désactiver. La section `thresholds` permet de modifier les bornes du RSI, la marge autour des moyennes mobiles ou encore le score minimal retenu par `analyzer.py`. Le dictionnaire `signal_weights` sert à donner plus ou moins d'importance à chaque indicateur.
+   - Le `score_opportunite` additionne ensuite les poids des signaux positifs et divise par la somme totale des poids pour produire un score entre 0 et 1.
    - Mettre à jour `config.json` avec votre clé SendGrid (si différente), vos proxies éventuels et les adresses e‑mail.
 
 2. **Lancer l'analyse du portefeuille**
