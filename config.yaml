@@ -21,6 +21,18 @@ thresholds:
   peg_max: 1
   min_opportunity_score: 0.5
 
+# Pondération des signaux techniques (1.0 par défaut)
+signal_weights:
+  MACD: 1.0
+  MM_20_50: 1.0
+  MM_50_200: 1.0
+  RSI: 1.0
+  Tendance: 1.0
+  Bollinger: 1.0
+  PEG: 1.0
+  PriceBook: 1.0
+  ROE: 1.0
+
 portfolio:
   - symbol: "ELIOR.PA"
     name: "Elior"
