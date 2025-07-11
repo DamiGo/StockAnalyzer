@@ -84,6 +84,20 @@ BOLLINGER_THRESHOLD = threshold_cfg.get('bollinger_threshold', 0.05)
 PEG_MAX = threshold_cfg.get('peg_max', 1)
 MIN_OPPORTUNITY_SCORE = threshold_cfg.get('min_opportunity_score', 0.5)
 
+# Pondération des signaux (1.0 par défaut si non défini dans le fichier de configuration)
+signal_weights_cfg = cfg.get('signal_weights', {}) if isinstance(cfg, dict) else {}
+SIGNAL_WEIGHTS = {
+    'MACD': signal_weights_cfg.get('MACD', 1.0),
+    'MM_20_50': signal_weights_cfg.get('MM_20_50', 1.0),
+    'MM_50_200': signal_weights_cfg.get('MM_50_200', 1.0),
+    'RSI': signal_weights_cfg.get('RSI', 1.0),
+    'Tendance': signal_weights_cfg.get('Tendance', 1.0),
+    'Bollinger': signal_weights_cfg.get('Bollinger', 1.0),
+    'PEG': signal_weights_cfg.get('PEG', 1.0),
+    'PriceBook': signal_weights_cfg.get('PriceBook', 1.0),
+    'ROE': signal_weights_cfg.get('ROE', 1.0),
+}
+
 class IndicateursBoursiers:
     @staticmethod
     def calculer_rsi(prix, periode=14):
@@ -387,13 +401,17 @@ class AnalyseAction:
                     logger.warning(f"Signal manquant: {signal_name} pour {self.ticker}")
                     signaux[signal_name] = False
 
-            # Calcul du score d'opportunité
-            nombre_total_signaux = len(expected_signals)
-            signaux_positifs = sum(1 for v in signaux.values() if v)
-            score_opportunite = signaux_positifs / nombre_total_signaux
+            # Calcul du score d'opportunité pondéré
+            total_poids = sum(SIGNAL_WEIGHTS.get(s, 1.0) for s in expected_signals)
+            poids_positifs = sum(
+                SIGNAL_WEIGHTS.get(s, 1.0) for s, v in signaux.items() if v
+            )
+            score_opportunite = poids_positifs / total_poids if total_poids else 0
 
             # Log du score pour debug
-            logger.info(f"Score d'opportunité pour {self.ticker}: {score_opportunite} ({signaux_positifs}/{nombre_total_signaux})")
+            logger.info(
+                f"Score d'opportunité pour {self.ticker}: {score_opportunite} (poids positifs={poids_positifs}/total={total_poids})"
+            )
 
             # Filtrage des opportunités intéressantes
             if score_opportunite <= MIN_OPPORTUNITY_SCORE or gain_potentiel <= 0:
