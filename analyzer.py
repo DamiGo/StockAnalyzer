@@ -74,6 +74,15 @@ SENDGRID_API_KEY = email_cfg.get('api_key', 'xxx')
 FROM_EMAIL = email_cfg.get('from', 'xxx')
 TO_EMAIL = email_cfg.get('to', 'xxx')
 
+# Chargement des seuils d'analyse
+threshold_cfg = cfg.get('thresholds', {}) if isinstance(cfg, dict) else {}
+RSI_LOWER = threshold_cfg.get('rsi_lower', 30)
+RSI_UPPER = threshold_cfg.get('rsi_upper', 70)
+MM_NEUTRAL_RATIO = threshold_cfg.get('mm_neutral_ratio', 0.02)
+BOLLINGER_THRESHOLD = threshold_cfg.get('bollinger_threshold', 0.05)
+PEG_MAX = threshold_cfg.get('peg_max', 1)
+MIN_OPPORTUNITY_SCORE = threshold_cfg.get('min_opportunity_score', 0.5)
+
 class IndicateursBoursiers:
     @staticmethod
     def calculer_rsi(prix, periode=14):
@@ -195,12 +204,15 @@ class AnalyseAction:
             zone_neutre = (mm20 + mm50) / 2
             volatilite = historique['Close'].tail(20).std()
 
-            if dernier_prix > mm20 * 1.02:
-                prix_achat = min(dernier_prix * 0.98, zone_neutre)
-            elif mm20 * 0.98 <= dernier_prix <= mm20 * 1.02:
+            seuil_haut = mm20 * (1 + MM_NEUTRAL_RATIO)
+            seuil_bas = mm20 * (1 - MM_NEUTRAL_RATIO)
+
+            if dernier_prix > seuil_haut:
+                prix_achat = min(dernier_prix * (1 - MM_NEUTRAL_RATIO), zone_neutre)
+            elif seuil_bas <= dernier_prix <= seuil_haut:
                 prix_achat = dernier_prix
             else:
-                prix_achat = max(dernier_prix * 0.98, zone_neutre - volatilite)
+                prix_achat = max(dernier_prix * (1 - MM_NEUTRAL_RATIO), zone_neutre - volatilite)
 
             if prix_achat <= 0 or np.isnan(prix_achat):
                 logger.warning(f"Prix d'achat invalide pour {self.ticker}")
@@ -325,7 +337,7 @@ class AnalyseAction:
             logger.info(f"Score d'opportunité pour {self.ticker}: {score_opportunite} ({signaux_positifs}/{nombre_total_signaux})")
 
             # Filtrage des opportunités intéressantes
-            if score_opportunite <= 0.5 or gain_potentiel <= 0:
+            if score_opportunite <= MIN_OPPORTUNITY_SCORE or gain_potentiel <= 0:
                 logger.info(f"Score trop faible ou gain insuffisant pour {self.ticker}: score={score_opportunite}, gain={gain_potentiel}%")
                 return None
 
@@ -382,7 +394,7 @@ class AnalyseAction:
             macd_signal = bool(macd.iloc[-1] > signal.iloc[-1])
             mm_20_50 = bool(mm[20].iloc[-1] > mm[50].iloc[-1])
             mm_50_200 = bool(mm[50].iloc[-1] > mm[200].iloc[-1])
-            rsi_ok = bool(30 < rsi < 70)
+            rsi_ok = bool(RSI_LOWER < rsi < RSI_UPPER)
 
             # Nouveaux signaux
             # Signal Bollinger : prix proche de la bande inférieure (potentiel d'achat)
@@ -390,14 +402,14 @@ class AnalyseAction:
             if np.isnan(bande_inf.iloc[-1]):
                 bollinger_signal = False
             else:
-                # Signal positif si le prix est à moins de 5% au-dessus de la bande inférieure
-                bollinger_signal = bool(dernier_prix < (bande_inf.iloc[-1] * 1.05))
+                # Signal positif si le prix est proche de la bande inférieure
+                bollinger_signal = bool(dernier_prix < (bande_inf.iloc[-1] * (1 + BOLLINGER_THRESHOLD)))
 
             # Signal PEG : ratio PEG inférieur à 1 est généralement considéré comme bon
             if ratio_peg is None:
                 peg_signal = False
             else:
-                peg_signal = bool(0 < ratio_peg < 1)
+                peg_signal = bool(0 < ratio_peg < PEG_MAX)
 
             # Créer le dictionnaire de signaux avec des booléens explicites
             signaux = {
