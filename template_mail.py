@@ -38,7 +38,7 @@ class RapportHTML:
 
         df = df[[
             'Action_Nom_Lien', 'prix_actuel', 'prix_achat_cible', 'prix_vente_cible', 'gain_potentiel',
-            'score_opportunite', 'rsi', 'signaux'
+            'score_opportunite', 'rsi', 'price_to_book', 'roe', 'ratio_peg', 'signaux'
         ]].rename(columns={
             'Action_Nom_Lien': 'Action',
             'prix_actuel': 'Prix Actuel (€)',
@@ -47,12 +47,19 @@ class RapportHTML:
             'gain_potentiel': 'Gain Potentiel (%)',
             'score_opportunite': 'Score',
             'rsi': 'RSI',
+            'price_to_book': 'Price/Book',
+            'roe': 'ROE (%)',
+            'ratio_peg': 'PEG',
             'signaux': 'Signaux Positifs'
         })
 
         # Formatage des nombres
         for col in ['Prix Actuel (€)', 'Prix Achat (€)', 'Prix Vente (€)']:
             df[col] = df[col].apply(lambda x: f'{x:,.2f}'.replace(',', ' '))
+
+        for col in ['Price/Book', 'PEG']:
+            df[col] = df[col].apply(lambda x: f'{x:.2f}' if pd.notnull(x) else 'N/A')
+        df['ROE (%)'] = df['ROE (%)'].apply(lambda x: f'{x:.1f}%' if pd.notnull(x) else 'N/A')
 
         # Création des textes formatés avec couleurs conditionnelles pour le gain potentiel
         gain_potentiel_original = [opp['gain_potentiel'] for opp in opportunites]
