@@ -168,6 +168,43 @@ class IndicateursBoursiers:
             logger.error(f"Erreur lors du calcul du ratio PEG pour {ticker}: {str(e)}")
             return None
 
+    @staticmethod
+    def calculer_price_to_book(ticker):
+        """Récupère le ratio Price to Book pour un ticker"""
+        try:
+            proxy = set_random_proxy()
+            if proxy:
+                logger.info(f"Proxy utilisé pour {ticker}: {proxy}")
+            stock = yf.Ticker(ticker, session=SESSION)
+            info = stock.info
+
+            pb = info.get('priceToBook')
+            if pb is None:
+                logger.warning(f"Donnée priceToBook non disponible pour {ticker}")
+            return pb
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération du Price to Book pour {ticker}: {e}")
+            return None
+
+    @staticmethod
+    def calculer_ro_e(ticker):
+        """Récupère le Return on Equity (en pourcentage) pour un ticker"""
+        try:
+            proxy = set_random_proxy()
+            if proxy:
+                logger.info(f"Proxy utilisé pour {ticker}: {proxy}")
+            stock = yf.Ticker(ticker, session=SESSION)
+            info = stock.info
+
+            roe = info.get('returnOnEquity')
+            if roe is None:
+                logger.warning(f"Donnée returnOnEquity non disponible pour {ticker}")
+                return None
+            return roe * 100  # convertir en pourcentage
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération du ROE pour {ticker}: {e}")
+            return None
+
 class AnalyseAction:
     def __init__(self, ticker):
         self.ticker = ticker
@@ -298,6 +335,10 @@ class AnalyseAction:
                     logger.warning(f"Erreur lors du calcul du ratio PEG pour {self.ticker}: {e}")
                     ratio_peg = None
 
+            # Récupération d'indicateurs fondamentaux complémentaires
+            price_to_book = self.indicateurs.calculer_price_to_book(self.ticker)
+            roe = self.indicateurs.calculer_ro_e(self.ticker)
+
             # Calcul des prix cibles
             prix_achat_cible = self.calculer_prix_achat_cible(historique, mm)
             prix_vente_cible = self.calculer_prix_vente_cible(historique)
@@ -312,17 +353,26 @@ class AnalyseAction:
 
             # Analyse des signaux techniques avec gestion d'erreurs
             try:
-                signaux = self._analyser_signaux(macd, signal, mm, rsi, prix_cloture, bande_inf, bande_sup, ratio_peg)
+                signaux = self._analyser_signaux(
+                    macd, signal, mm, rsi, prix_cloture,
+                    bande_inf, bande_sup, ratio_peg,
+                    price_to_book, roe
+                )
             except Exception as e:
                 logger.error(f"Erreur lors de l'analyse des signaux pour {self.ticker}: {e}")
                 # Créer un dictionnaire de signaux par défaut en cas d'erreur
                 signaux = {
                     'MACD': False, 'MM_20_50': False, 'MM_50_200': False,
-                    'RSI': False, 'Tendance': False, 'Bollinger': False, 'PEG': False
+                    'RSI': False, 'Tendance': False, 'Bollinger': False,
+                    'PEG': False, 'PriceBook': False, 'ROE': False
                 }
 
             # Vérification de la présence de tous les signaux attendus
-            expected_signals = {'MACD', 'MM_20_50', 'MM_50_200', 'RSI', 'Tendance', 'Bollinger', 'PEG'}
+            expected_signals = {
+                'MACD', 'MM_20_50', 'MM_50_200', 'RSI',
+                'Tendance', 'Bollinger', 'PEG',
+                'PriceBook', 'ROE'
+            }
             for signal_name in expected_signals:
                 if signal_name not in signaux:
                     logger.warning(f"Signal manquant: {signal_name} pour {self.ticker}")
@@ -359,6 +409,10 @@ class AnalyseAction:
                 else:
                     resultat['ratio_peg'] = None
 
+                # Ajout du Price to Book et du ROE
+                resultat['price_to_book'] = round(price_to_book, 2) if price_to_book is not None else None
+                resultat['roe'] = round(roe, 1) if roe is not None else None
+
                 # Calcul et ajout de la position dans les bandes de Bollinger
                 try:
                     resultat['bollinger_position'] = self._calculer_position_bollinger(
@@ -379,7 +433,10 @@ class AnalyseAction:
             logger.error(f"Erreur lors de l'analyse de {self.ticker}: {e}", exc_info=True)
             return None
 
-    def _analyser_signaux(self, macd, signal, mm, rsi, prix_cloture, bande_inf, bande_sup, ratio_peg):
+    def _analyser_signaux(
+        self, macd, signal, mm, rsi, prix_cloture,
+        bande_inf, bande_sup, ratio_peg, price_to_book, roe
+    ):
         """Analyse les signaux techniques avec les indicateurs supplémentaires"""
         try:
             # Signaux existants
@@ -411,6 +468,18 @@ class AnalyseAction:
             else:
                 peg_signal = bool(0 < ratio_peg < PEG_MAX)
 
+            # Signal Price to Book : valeur inférieure à 1.5 considérée comme intéressante
+            if price_to_book is None:
+                pb_signal = False
+            else:
+                pb_signal = bool(price_to_book < 1.5)
+
+            # Signal ROE : supérieur à 10 %
+            if roe is None:
+                roe_signal = False
+            else:
+                roe_signal = bool(roe > 10)
+
             # Créer le dictionnaire de signaux avec des booléens explicites
             signaux = {
                 'MACD': macd_signal,
@@ -419,7 +488,9 @@ class AnalyseAction:
                 'RSI': rsi_ok,
                 'Tendance': tendance,
                 'Bollinger': bollinger_signal,
-                'PEG': peg_signal
+                'PEG': peg_signal,
+                'PriceBook': pb_signal,
+                'ROE': roe_signal,
             }
 
             # Journaliser les signaux pour debug
@@ -436,7 +507,9 @@ class AnalyseAction:
                 'RSI': False,
                 'Tendance': False,
                 'Bollinger': False,
-                'PEG': False
+                'PEG': False,
+                'PriceBook': False,
+                'ROE': False
             }
     @staticmethod
     def obtenir_nom_entreprise(ticker):
