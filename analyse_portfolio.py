@@ -1,29 +1,29 @@
 # analyse_portfolio.py
+import os
 import yaml
 import yfinance as yf
 from datetime import datetime, timedelta
 from sendgrid import SendGridAPIClient
-# Importer requests depuis curl_cffi pour pouvoir impersonnifier un navigateur
 from sendgrid.helpers.mail import Mail
-import os
 import random
 import logging
-# Importer requests depuis curl_cffi pour pouvoir impersonnifier un navigateur
 from curl_cffi import requests
 import yfinance_cookie_patch
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Configuration du logging pour tracer les problèmes de récupération de données
 logger = logging.getLogger(__name__)
 if not logger.handlers:
     logger.setLevel(logging.INFO)
-    handler = logging.FileHandler('portfolio_analysis.log')
+    handler = logging.FileHandler(os.path.join(BASE_DIR, 'portfolio_analysis.log'))
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 logger.propagate = False
 
 # Chargement de la configuration globale et des proxies
-CONFIG_FILE = 'config.yaml'
+CONFIG_FILE = os.path.join(BASE_DIR, 'config.yaml')
 try:
     with open(CONFIG_FILE, 'r') as f:
         CFG = yaml.safe_load(f)
@@ -89,6 +89,8 @@ class PortfolioAnalyzer:
 
     def load_config(self, config_file='config.yaml'):
         """Charge la configuration depuis le fichier YAML."""
+        if not os.path.isabs(config_file):
+            config_file = os.path.join(BASE_DIR, config_file)
         with open(config_file, 'r') as f:
             return yaml.safe_load(f)
 
