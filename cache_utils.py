@@ -3,7 +3,9 @@ from datetime import datetime, timedelta
 import pandas as pd
 import logging
 
-CACHE_DIR = 'cache'
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+CACHE_DIR = os.path.join(BASE_DIR, 'cache')
 MAX_AGE = timedelta(hours=24)
 
 logger = logging.getLogger(__name__)

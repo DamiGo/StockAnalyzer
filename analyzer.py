@@ -12,6 +12,8 @@ import random
 from datetime import datetime
 import logging
 import sys
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 from template_mail import RapportHTML
 from cache_utils import load_cached_data, save_to_cache
 # Utilisation de curl_cffi pour contourner les limitations de Yahoo Finance
@@ -24,14 +26,14 @@ import yfinance_cookie_patch
 logger = logging.getLogger(__name__)
 if not logger.handlers:
     logger.setLevel(logging.INFO)
-    handler = logging.FileHandler('sbf120_analysis.log')
+    handler = logging.FileHandler(os.path.join(BASE_DIR, 'sbf120_analysis.log'))
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 logger.propagate = False
 
 # Chargement de la configuration externe
-CONFIG_FILE = 'config.yaml'
+CONFIG_FILE = os.path.join(BASE_DIR, 'config.yaml')
 try:
     with open(CONFIG_FILE, 'r') as f:
         cfg = yaml.safe_load(f)
