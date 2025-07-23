@@ -2,6 +2,7 @@
 import os
 import yaml
 import yfinance as yf
+import pandas as pd
 from datetime import datetime, timedelta
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
@@ -87,6 +88,60 @@ class PortfolioAnalyzer:
     def __init__(self, utils=None):
         self.utils = utils or PortfolioUtils()
 
+    def calculer_tendance(self, historique):
+        """Retourne True si la tendance est haussière, False sinon."""
+        try:
+            mm20 = historique['Close'].rolling(window=20).mean()
+            if len(mm20) < 5:
+                logger.warning("Pas assez de données de tendance")
+                return False
+            return bool(mm20.iloc[-1] > mm20.iloc[-5])
+        except Exception as e:
+            logger.error("Erreur lors du calcul de la tendance: %s", e)
+            return False
+
+    def calculer_prix_vente_cible(self, historique):
+        """Calcule un prix de vente conseillé selon la méthode d'analyzer.py."""
+        try:
+            if len(historique) < 252:
+                logger.warning("Données insuffisantes pour calculer le prix de vente")
+                return None
+
+            tendance_3m = historique['Close'].tail(90).mean()
+            tendance_6m = historique['Close'].tail(180).mean()
+            tendance_12m = historique['Close'].tail(252).mean()
+
+            if any(pd.isna(x) for x in [tendance_3m, tendance_6m, tendance_12m]):
+                logger.warning("Tendances NaN rencontrées pour le prix de vente")
+                return None
+
+            prix_cible = (tendance_3m * 0.5 + tendance_6m * 0.3 + tendance_12m * 0.2)
+            volatilite = historique['Close'].tail(30).pct_change().std()
+            if pd.isna(volatilite):
+                logger.warning("Volatilité NaN pour le prix de vente")
+                return None
+
+            dernier_prix = historique['Close'].iloc[-1]
+            prix_final = prix_cible * (1 + volatilite)
+            if prix_final <= dernier_prix:
+                return None
+            return float(prix_final)
+        except Exception as e:
+            logger.error("Erreur lors du calcul du prix de vente: %s", e)
+            return None
+
+    def calculer_stop_loss(self, prix_achat, historique):
+        """Calcule le stop loss en suivant les règles d'analyzer.py."""
+        try:
+            base_stop = prix_achat * (1 - CFG.get('stop_loss_percent', 5) / 100)
+            support = historique['Close'].rolling(window=20).min().iloc[-1]
+            if support > base_stop:
+                return float(support * 0.995)
+            return float(base_stop)
+        except Exception as e:
+            logger.warning("Erreur lors du calcul du stop loss: %s", e)
+            return float(base_stop)
+
     def load_config(self, config_file='config.yaml'):
         """Charge la configuration depuis le fichier YAML."""
         if not os.path.isabs(config_file):
@@ -130,6 +185,11 @@ class PortfolioAnalyzer:
             current_price = hist['Close'].iloc[-1]
             purchase_price = purchase_info['purchase_price']
 
+            tendance_bool = self.calculer_tendance(hist)
+            tendance = "Haussi\u00e8re" if tendance_bool else "Baissi\u00e8re"
+            prix_vente = self.calculer_prix_vente_cible(hist)
+            stop_loss = self.calculer_stop_loss(purchase_price, hist)
+
             analysis = {
                 'current_price': current_price,
                 'purchase_price': purchase_price,
@@ -139,7 +199,10 @@ class PortfolioAnalyzer:
                 'total_value': current_price * purchase_info['quantity'],
                 'total_cost': purchase_price * purchase_info['quantity'],
                 'total_gain_loss': (current_price - purchase_price) * purchase_info['quantity'],
-                'purchase_variation': ((current_price - purchase_price) / purchase_price) * 100
+                'purchase_variation': ((current_price - purchase_price) / purchase_price) * 100,
+                'trend': tendance,
+                'sell_price': prix_vente,
+                'stop_loss': stop_loss
             }
 
             # Calculer explicitement la variation sur 1 jour
@@ -170,30 +233,6 @@ class PortfolioAnalyzer:
             logger.error("Erreur lors de l'analyse de %s: %s", symbol, str(e))
             return None
 
-    def get_recommendation(self, variations, purchase_variation):
-        """Génère une recommandation basée sur les variations."""
-        recent_var = variations.get(1, 0)
-        mid_var = variations.get(90, 0)
-        long_var = variations.get(180, 0)
-
-        if purchase_variation < -20:
-            if mid_var > 10:
-                return "RENFORCER - Position en perte mais tendance positive récente"
-            else:
-                return "SURVEILLER - Position en perte significative"
-        elif purchase_variation > 50:
-            if recent_var < -5:
-                return "VENDRE - Forte plus-value et tendance baissière récente"
-            else:
-                return "GARDER - Excellente performance, surveiller les signes de renversement"
-        elif long_var < -20 and mid_var < -10:
-            return "RENFORCER - La baisse importante pourrait représenter une opportunité"
-        elif long_var > 30 and recent_var > 5:
-            return "VENDRE - La hausse importante suggère une prise de bénéfices"
-        elif -10 <= mid_var <= 10:
-            return "GARDER - Le titre montre une stabilité relative"
-        else:
-            return "SURVEILLER - Comportement incertain"
 
     def analyze_portfolio(self):
         """Analyse l'ensemble du portefeuille."""
@@ -224,10 +263,9 @@ class PortfolioAnalyzer:
                     'total_cost': analysis['total_cost'],
                     'total_gain_loss': analysis['total_gain_loss'],
                     'purchase_variation': analysis['purchase_variation'],
-                    'recommendation': self.get_recommendation(
-                        analysis['variations'],
-                        analysis['purchase_variation']
-                    )
+                    'trend': analysis['trend'],
+                    'sell_price': analysis['sell_price'],
+                    'stop_loss': analysis['stop_loss'],
                 }
                 portfolio_data.append(stock_data)
                 logger.info("%s analysé avec succès", stock['symbol'])
@@ -332,7 +370,7 @@ class HTMLReportGenerator:
 
             <div style="margin-top: 40px; padding: 25px; background: white; border-radius: 12px; font-size: 13px; color: #666; text-align: center; border: 1px solid #e0e4e8; line-height: 1.6;">
                 <p>Ce rapport est généré automatiquement à partir des données de marché en temps réel.</p>
-                <p>Les recommandations sont basées sur l'analyse technique et ne constituent pas des conseils en investissement.</p>
+                <p>Les tendances sont basées sur l'analyse technique et ne constituent pas des conseils en investissement.</p>
             </div>
         </div>
         """
@@ -400,7 +438,9 @@ class HTMLReportGenerator:
                         <th style="{th_style} text-align: right;">6M</th>
                         <th style="{th_style} text-align: right;">Depuis Achat</th>
                         <th style="{th_style} text-align: right;">Gain/Perte</th>
-                        <th style="{th_style} text-align: center;">Recommandation</th>
+                        <th style="{th_style} text-align: center;">Tendance</th>
+                        <th style="{th_style} text-align: right;">Cible Vente</th>
+                        <th style="{th_style} text-align: right;">Stop Loss</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -432,8 +472,8 @@ class HTMLReportGenerator:
                     border: 1px solid #bae6fd;
                 """
 
-            # Style pour la recommandation
-            def get_recommendation_style(rec):
+            # Style pour la tendance haussière ou baissière
+            def get_trend_style(trend):
                 base = """
                     font-weight: 600;
                     padding: 8px 16px;
@@ -443,23 +483,18 @@ class HTMLReportGenerator:
                     letter-spacing: 0.5px;
                     display: inline-block;
                 """
-                if "RENFORCER" in rec:
+                if trend.lower().startswith('haussi'):
                     return base + """
                         background-color: #dcfce7;
                         color: #059669;
                         border: 1px solid #a7f3d0;
                     """
-                elif "VENDRE" in rec:
+                else:
                     return base + """
                         background-color: #fee2e2;
                         color: #dc2626;
                         border: 1px solid #fecaca;
                     """
-                return base + """
-                    background-color: #e0f2fe;
-                    color: #0284c7;
-                    border: 1px solid #bae6fd;
-                """
 
             html += f"""
                 <tr style="border-bottom: 1px solid #e9ecef;">
@@ -484,9 +519,15 @@ class HTMLReportGenerator:
                         {self.utils.format_money(stock['total_gain_loss'])}
                     </td>
                     <td style="{td_style} text-align: center;">
-                        <div style="{get_recommendation_style(stock['recommendation'])}">
-                            {stock['recommendation'].split(' - ')[0]}
+                        <div style="{get_trend_style(stock['trend'])}">
+                            {stock['trend']}
                         </div>
+                    </td>
+                    <td style="{td_style} text-align: right; font-family: monospace;">
+                        {self.utils.format_money(stock['sell_price']) if stock['sell_price'] is not None else 'N/A'}
+                    </td>
+                    <td style="{td_style} text-align: right; font-family: monospace;">
+                        {self.utils.format_money(stock['stop_loss'])}
                     </td>
                 </tr>
             """
@@ -532,10 +573,10 @@ class HTMLReportGenerator:
                     {self.utils.format_money(stock['total_gain_loss'])}
                 </td>
                 <td style="text-align: center">
-                    <div class="recommendation {'buy' if 'RENFORCER' in stock['recommendation'] else 'sell' if 'VENDRE' in stock['recommendation'] else 'hold'}">
-                        {stock['recommendation'].split(' - ')[0]}
-                    </div>
+                    <div class="trend {stock['trend'].lower()}">{stock['trend']}</div>
                 </td>
+                <td class="value-cell">{self.utils.format_money(stock['sell_price']) if stock['sell_price'] is not None else 'N/A'}</td>
+                <td class="value-cell">{self.utils.format_money(stock['stop_loss'])}</td>
             </tr>
         """
 
