@@ -27,26 +27,63 @@ def _backup_config():
     return None
 
 
-def _restore_config(data):
-    """Restore the saved config.yaml content if provided."""
-    if data is None:
+def _merge_config(local_data):
+    """Merge the saved config.yaml content with the updated repository version."""
+    if local_data is None:
         return
+
+    import yaml
+
     cfg_path = os.path.join(REPO_DIR, 'config.yaml')
-    logger.info('Restoring local config.yaml')
-    with open(cfg_path, 'wb') as f:
-        f.write(data)
+
+    try:
+        with open(cfg_path, 'r') as f:
+            repo_cfg = yaml.safe_load(f) or {}
+    except Exception:
+        repo_cfg = {}
+
+    try:
+        local_cfg = yaml.safe_load(local_data.decode()) or {}
+    except Exception:
+        logger.error('Erreur lors du chargement du config.yaml local, restauration simple')
+        with open(cfg_path, 'wb') as f:
+            f.write(local_data)
+        return
+
+    def merge(base, override):
+        for key, value in override.items():
+            if (
+                isinstance(value, dict)
+                and isinstance(base.get(key), dict)
+            ):
+                merge(base[key], value)
+            else:
+                base[key] = value
+
+    merge(repo_cfg, local_cfg)
+
+    with open(cfg_path, 'w') as f:
+        yaml.safe_dump(repo_cfg, f, default_flow_style=False, sort_keys=False)
 
 
 def update_repo():
-    """Clone or update the repository without overwriting config.yaml."""
+    """Clone or update the repository, discarding local changes except config.yaml."""
     backup = _backup_config()
     if not os.path.isdir(REPO_DIR):
         logger.info('Cloning repository %s into %s', REPO_URL, REPO_DIR)
         subprocess.run(['git', 'clone', REPO_URL, REPO_DIR], check=True)
     else:
-        logger.info('Pulling latest changes in %s', REPO_DIR)
-        subprocess.run(['git', '-C', REPO_DIR, 'pull'], check=True)
-    _restore_config(backup)
+        logger.info('Fetching latest changes in %s', REPO_DIR)
+        subprocess.run(['git', '-C', REPO_DIR, 'fetch', '--all'], check=True)
+        branch = subprocess.check_output([
+            'git', '-C', REPO_DIR, 'rev-parse', '--abbrev-ref', 'HEAD'],
+            text=True
+        ).strip()
+        subprocess.run([
+            'git', '-C', REPO_DIR, 'reset', '--hard', f'origin/{branch}'
+        ], check=True)
+        subprocess.run(['git', '-C', REPO_DIR, 'clean', '-fd'], check=True)
+    _merge_config(backup)
 
 _portfolio_ran = False
 
