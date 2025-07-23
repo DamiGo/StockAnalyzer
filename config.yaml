@@ -35,6 +35,8 @@ signal_weights:
 
 # Pourcentage de perte acceptable pour le calcul du stop loss
 stop_loss_percent: 5
+# Pourcentage de gain recherché pour sortir d'une position
+profit_target_percent: 10
 
 portfolio:
   - symbol: "ELIOR.PA"

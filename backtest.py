@@ -6,6 +6,8 @@ from typing import Dict, List
 from rich.console import Console
 from rich.table import Table
 from rich.progress import track
+import yaml
+import os
 
 import yfinance as yf
 
@@ -45,6 +47,16 @@ TICKERS = [
 ]
 
 console = Console()
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_FILE = os.path.join(BASE_DIR, "config.yaml")
+try:
+    with open(CONFIG_FILE, "r") as f:
+        cfg = yaml.safe_load(f)
+except Exception:
+    cfg = {}
+
+PROFIT_TARGET_PERCENT = cfg.get("profit_target_percent", 10)
 
 CACHE_PERIOD = "5y"
 DATA_CACHE: Dict[str, pd.DataFrame] = {}
@@ -86,20 +98,23 @@ def simulate(initial_cash: float = 10000.0):
     sell_count = 0
 
     for current_day in track(days, description="Simulation"):
-        # Vendre si objectif atteint
+        # Vendre si l'objectif est atteint ou si un support proche est touche
         for ticker in list(portfolio.keys()):
             data = get_data(ticker)
-            row = data.loc[data.index == current_day]
-            if not row.empty:
-                price = row["Close"].iloc[0]
-                target = portfolio[ticker]["target"]
-                if price >= target:
-                    qty = portfolio[ticker]["quantity"]
-                    cash += qty * target
-                    sell_count += qty
-                    del portfolio[ticker]
+            history = data[data.index <= current_day]
+            if history.empty:
+                continue
+            price = history["Close"].iloc[-1]
+            target = portfolio[ticker]["target"]
+            support = history["Close"].rolling(window=20).min().iloc[-1]
+            if price >= target or support >= target * 0.98:
+                qty = portfolio[ticker]["quantity"]
+                cash += qty * price
+                sell_count += qty
+                del portfolio[ticker]
 
-        # Acheter de nouvelles actions
+        # Rechercher les meilleures opportunites d'achat
+        opportunities = []
         for ticker in TICKERS:
             if ticker in portfolio:
                 continue
@@ -108,18 +123,32 @@ def simulate(initial_cash: float = 10000.0):
             if not result:
                 continue
             buy_price = result["prix_achat_cible"]
-            sell_price = result["prix_vente_cible"]
-            if buy_price and sell_price and sell_price > buy_price and cash >= buy_price:
-                qty = int(cash // buy_price)
-                if qty > 0:
-                    portfolio[ticker] = {
-                        "quantity": qty,
-                        "buy": buy_price,
-                        "target": sell_price,
-                        "date": current_day
-                    }
-                    cash -= qty * buy_price
-                    buy_count += qty
+            if buy_price and buy_price <= cash:
+                opportunities.append({
+                    "ticker": ticker,
+                    "buy": buy_price,
+                    "gain": result.get("gain_potentiel", 0)
+                })
+
+        opportunities.sort(key=lambda x: x["gain"], reverse=True)
+
+        for opp in opportunities:
+            if cash < opp["buy"]:
+                continue
+            qty = int(cash // opp["buy"])
+            if qty <= 0:
+                continue
+            target_price = opp["buy"] * (1 + PROFIT_TARGET_PERCENT / 100)
+            portfolio[opp["ticker"]] = {
+                "quantity": qty,
+                "buy": opp["buy"],
+                "target": target_price,
+                "date": current_day
+            }
+            cash -= qty * opp["buy"]
+            buy_count += qty
+            if cash < min((o["buy"] for o in opportunities), default=cash + 1):
+                break
 
         # Affichage du portefeuille
         table = Table(title=f"{current_day.date()} - Cash: {cash:.2f}")
