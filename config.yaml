@@ -33,6 +33,9 @@ signal_weights:
   PriceBook: 1.0
   ROE: 1.0
 
+# Pourcentage de perte acceptable pour le calcul du stop loss
+stop_loss_percent: 5
+
 portfolio:
   - symbol: "ELIOR.PA"
     name: "Elior"
