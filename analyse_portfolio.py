@@ -101,34 +101,42 @@ class PortfolioAnalyzer:
             return False
 
     def calculer_prix_vente_cible(self, historique):
-        """Calcule un prix de vente conseillé selon la méthode d'analyzer.py."""
+        """Calcule un prix de vente conseillé selon la méthode d'analyzer.py.
+        Retourne un tuple (prix, raison) où raison décrit la cause si le prix
+        ne peut pas être calculé."""
         try:
             if len(historique) < 252:
-                logger.warning("Données insuffisantes pour calculer le prix de vente")
-                return None
+                msg = "Données insuffisantes pour calculer le prix de vente"
+                logger.warning(msg)
+                return None, msg
 
             tendance_3m = historique['Close'].tail(90).mean()
             tendance_6m = historique['Close'].tail(180).mean()
             tendance_12m = historique['Close'].tail(252).mean()
 
             if any(pd.isna(x) for x in [tendance_3m, tendance_6m, tendance_12m]):
-                logger.warning("Tendances NaN rencontrées pour le prix de vente")
-                return None
+                msg = "Tendances NaN rencontrées pour le prix de vente"
+                logger.warning(msg)
+                return None, msg
 
             prix_cible = (tendance_3m * 0.5 + tendance_6m * 0.3 + tendance_12m * 0.2)
             volatilite = historique['Close'].tail(30).pct_change().std()
             if pd.isna(volatilite):
-                logger.warning("Volatilité NaN pour le prix de vente")
-                return None
+                msg = "Volatilité NaN pour le prix de vente"
+                logger.warning(msg)
+                return None, msg
 
             dernier_prix = historique['Close'].iloc[-1]
             prix_final = prix_cible * (1 + volatilite)
             if prix_final <= dernier_prix:
-                return None
-            return float(prix_final)
+                msg = "Prix final inférieur ou égal au cours actuel"
+                return None, msg
+
+            return float(prix_final), None
         except Exception as e:
-            logger.error("Erreur lors du calcul du prix de vente: %s", e)
-            return None
+            msg = f"Erreur lors du calcul du prix de vente: {e}"
+            logger.error(msg)
+            return None, msg
 
     def calculer_stop_loss(self, prix_achat, historique):
         """Calcule le stop loss en suivant les règles d'analyzer.py."""
@@ -187,7 +195,7 @@ class PortfolioAnalyzer:
 
             tendance_bool = self.calculer_tendance(hist)
             tendance = "Haussi\u00e8re" if tendance_bool else "Baissi\u00e8re"
-            prix_vente = self.calculer_prix_vente_cible(hist)
+            prix_vente, raison_vente = self.calculer_prix_vente_cible(hist)
             stop_loss = self.calculer_stop_loss(purchase_price, hist)
 
             analysis = {
@@ -202,6 +210,7 @@ class PortfolioAnalyzer:
                 'purchase_variation': ((current_price - purchase_price) / purchase_price) * 100,
                 'trend': tendance,
                 'sell_price': prix_vente,
+                'sell_price_reason': raison_vente,
                 'stop_loss': stop_loss
             }
 
@@ -265,6 +274,7 @@ class PortfolioAnalyzer:
                     'purchase_variation': analysis['purchase_variation'],
                     'trend': analysis['trend'],
                     'sell_price': analysis['sell_price'],
+                    'sell_price_reason': analysis['sell_price_reason'],
                     'stop_loss': analysis['stop_loss'],
                 }
                 portfolio_data.append(stock_data)
@@ -524,7 +534,7 @@ class HTMLReportGenerator:
                         </div>
                     </td>
                     <td style="{td_style} text-align: right; font-family: monospace;">
-                        {self.utils.format_money(stock['sell_price']) if stock['sell_price'] is not None else 'N/A'}
+                        {self.utils.format_money(stock['sell_price']) if stock['sell_price'] is not None else stock.get('sell_price_reason', 'N/A')}
                     </td>
                     <td style="{td_style} text-align: right; font-family: monospace;">
                         {self.utils.format_money(stock['stop_loss'])}
@@ -575,7 +585,7 @@ class HTMLReportGenerator:
                 <td style="text-align: center">
                     <div class="trend {stock['trend'].lower()}">{stock['trend']}</div>
                 </td>
-                <td class="value-cell">{self.utils.format_money(stock['sell_price']) if stock['sell_price'] is not None else 'N/A'}</td>
+                <td class="value-cell">{self.utils.format_money(stock['sell_price']) if stock['sell_price'] is not None else stock.get('sell_price_reason', 'N/A')}</td>
                 <td class="value-cell">{self.utils.format_money(stock['stop_loss'])}</td>
             </tr>
         """
