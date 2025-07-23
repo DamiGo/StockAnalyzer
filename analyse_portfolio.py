@@ -324,7 +324,7 @@ class HTMLReportGenerator:
         return f"""
         <div style="{container_style}">
             <div style="{header_style}">
-                <h1 style="font-size: 36px; font-weight: 700; margin-bottom: 10px;">Rapport de Portefeuille</h1>
+                <h1 style="font-size: 24px; font-weight: 700; margin-bottom: 6px;">Rapport de Portefeuille</h1>
                 <p style="font-size: 16px; opacity: 0.9;">Généré le {datetime.now().strftime('%d %B %Y à %H:%M').lower()}</p>
             </div>
 
@@ -333,7 +333,7 @@ class HTMLReportGenerator:
                     <div style="font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; color: #666; margin-bottom: 12px; font-weight: 600;">
                         Valeur Totale
                     </div>
-                    <div style="font-size: 32px; font-weight: 700; line-height: 1.2;">
+                    <div style="font-size: 24px; font-weight: 700; line-height: 1.2; white-space: nowrap;">
                         {self.utils.format_money(total_portfolio_value)}
                     </div>
                 </div>
@@ -342,7 +342,7 @@ class HTMLReportGenerator:
                     <div style="font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; color: #666; margin-bottom: 12px; font-weight: 600;">
                         Coût Total
                     </div>
-                    <div style="font-size: 32px; font-weight: 700; line-height: 1.2;">
+                    <div style="font-size: 24px; font-weight: 700; line-height: 1.2; white-space: nowrap;">
                         {self.utils.format_money(total_portfolio_cost)}
                     </div>
                 </div>
@@ -351,7 +351,7 @@ class HTMLReportGenerator:
                     <div style="font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; color: #666; margin-bottom: 12px; font-weight: 600;">
                         Gain/Perte Total
                     </div>
-                    <div style="font-size: 32px; font-weight: 700; line-height: 1.2; color: {self.utils.get_color_for_value(total_portfolio_gain)}">
+                    <div style="font-size: 24px; font-weight: 700; line-height: 1.2; color: {self.utils.get_color_for_value(total_portfolio_gain)}; white-space: nowrap;">
                         {self.utils.format_money(total_portfolio_gain)}
                     </div>
                 </div>
@@ -360,7 +360,7 @@ class HTMLReportGenerator:
                     <div style="font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; color: #666; margin-bottom: 12px; font-weight: 600;">
                         Performance Globale
                     </div>
-                    <div style="font-size: 32px; font-weight: 700; line-height: 1.2; color: {self.utils.get_color_for_value(total_portfolio_return)}">
+                    <div style="font-size: 24px; font-weight: 700; line-height: 1.2; color: {self.utils.get_color_for_value(total_portfolio_return)}; white-space: nowrap;">
                         {self.utils.format_percentage(total_portfolio_return)}
                     </div>
                 </div>
@@ -402,7 +402,7 @@ class HTMLReportGenerator:
             color: #2c3e50;
             font-weight: 600;
             text-transform: uppercase;
-            font-size: 13px;
+            font-size: 12px;
             letter-spacing: 0.5px;
             padding: 20px 16px;
             text-align: left;
@@ -412,7 +412,7 @@ class HTMLReportGenerator:
         td_style = """
             padding: 16px;
             border-bottom: 1px solid #e9ecef;
-            font-size: 15px;
+            font-size: 14px;
             vertical-align: middle;
         """
 
@@ -499,7 +499,7 @@ class HTMLReportGenerator:
             html += f"""
                 <tr style="border-bottom: 1px solid #e9ecef;">
                     <td style="{td_style}">
-                        <div style="font-weight: 600; color: #1a1a1a; font-size: 15px;">{stock['name']}</div>
+                        <div style="font-weight: 600; color: #1a1a1a; font-size: 14px;">{stock['name']}</div>
                         <div style="color: #666; font-size: 13px;">{stock['symbol']}</div>
                     </td>
                     <td style="{td_style} text-align: right; font-family: monospace;">{self.utils.format_money(stock['current_price'])}</td>
