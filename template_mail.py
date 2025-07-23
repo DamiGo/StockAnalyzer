@@ -37,12 +37,13 @@ class RapportHTML:
         )
 
         df = df[[
-            'Action_Nom_Lien', 'prix_actuel', 'prix_achat_cible', 'prix_vente_cible', 'gain_potentiel',
+            'Action_Nom_Lien', 'prix_actuel', 'prix_achat_cible', 'stop_loss', 'prix_vente_cible', 'gain_potentiel',
             'score_opportunite', 'rsi', 'price_to_book', 'roe', 'ratio_peg', 'signaux'
         ]].rename(columns={
             'Action_Nom_Lien': 'Action',
             'prix_actuel': 'Prix Actuel (€)',
             'prix_achat_cible': 'Prix Achat (€)',
+            'stop_loss': 'Stop Loss (€)',
             'prix_vente_cible': 'Prix Vente (€)',
             'gain_potentiel': 'Gain Potentiel (%)',
             'score_opportunite': 'Score',
@@ -54,7 +55,7 @@ class RapportHTML:
         })
 
         # Formatage des nombres
-        for col in ['Prix Actuel (€)', 'Prix Achat (€)', 'Prix Vente (€)']:
+        for col in ['Prix Actuel (€)', 'Prix Achat (€)', 'Prix Vente (€)', 'Stop Loss (€)']:
             df[col] = df[col].apply(lambda x: f'{x:,.2f}'.replace(',', ' '))
 
         for col in ['Price/Book', 'PEG']:

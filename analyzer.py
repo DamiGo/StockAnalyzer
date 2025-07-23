@@ -100,6 +100,9 @@ SIGNAL_WEIGHTS = {
     'ROE': signal_weights_cfg.get('ROE', 1.0),
 }
 
+# Pourcentage de perte acceptable pour calculer le stop loss
+STOP_LOSS_PERCENT = cfg.get('stop_loss_percent', 5)
+
 class IndicateursBoursiers:
     @staticmethod
     def calculer_rsi(prix, periode=14):
@@ -326,6 +329,22 @@ class AnalyseAction:
             logger.error(f"Erreur dans le calcul du prix de vente cible pour {self.ticker}: {e}")
             return None
 
+    def calculer_stop_loss(self, prix_achat, historique):
+        """Calcule un niveau de stop loss basé sur un pourcentage de perte acceptable
+        et ajusté en fonction des supports récents."""
+        try:
+            base_stop = prix_achat * (1 - STOP_LOSS_PERCENT / 100)
+
+            # Utiliser le plus bas des 20 derniers jours comme niveau de support
+            support = historique['Close'].rolling(window=20).min().iloc[-1]
+            if support > base_stop:
+                # Placer légèrement sous le support pour éviter les faux signaux
+                return support * 0.995
+            return base_stop
+        except Exception as e:
+            logger.warning(f"Erreur lors du calcul du stop loss pour {self.ticker}: {e}")
+            return base_stop
+
     def analyser(self):
         """Analyse complète d'une action avec indicateurs supplémentaires"""
         # Liste des tickers pour lesquels on ne calcule pas le ratio PEG
@@ -420,11 +439,14 @@ class AnalyseAction:
                 logger.info(f"Score trop faible ou gain insuffisant pour {self.ticker}: score={score_opportunite}, gain={gain_potentiel}%")
                 return None
 
+            # Calcul du stop loss selon la configuration
+            stop_loss = self.calculer_stop_loss(prix_achat_cible, historique)
+
             # Création du résultat avec les indicateurs de base
             try:
                 resultat = self._formater_resultat(
-                    dernier_prix, prix_achat_cible, prix_vente_cible, gain_potentiel,
-                    score_opportunite, rsi, signaux
+                    dernier_prix, prix_achat_cible, prix_vente_cible,
+                    stop_loss, gain_potentiel, score_opportunite, rsi, signaux
                 )
             except Exception as e:
                 logger.error(f"Erreur lors du formatage des résultats pour {self.ticker}: {e}")
@@ -567,14 +589,15 @@ class AnalyseAction:
         ticker_encode = urllib.parse.quote(ticker)
         return f"https://finance.yahoo.com/quote/{ticker_encode}"
 
-    def _formater_resultat(self, prix_actuel, prix_achat_cible, prix_vente_cible, gain_potentiel,
-                          score_opportunite, rsi, signaux):
+    def _formater_resultat(self, prix_actuel, prix_achat_cible, prix_vente_cible,
+                          stop_loss, gain_potentiel, score_opportunite, rsi, signaux):
         """Formate le résultat de l'analyse avec validation des données"""
 
         # Vérification des valeurs numériques
         if (not isinstance(prix_actuel, (int, float)) or
             not isinstance(prix_achat_cible, (int, float)) or
             not isinstance(prix_vente_cible, (int, float)) or
+            not isinstance(stop_loss, (int, float)) or
             not isinstance(gain_potentiel, (int, float)) or
             not isinstance(score_opportunite, (int, float)) or
             not isinstance(rsi, (int, float))):
@@ -583,13 +606,14 @@ class AnalyseAction:
 
         # Vérification des NaN
         if (np.isnan(prix_actuel) or np.isnan(prix_achat_cible) or
-            np.isnan(prix_vente_cible) or np.isnan(gain_potentiel) or
-            np.isnan(score_opportunite) or np.isnan(rsi)):
+            np.isnan(prix_vente_cible) or np.isnan(stop_loss) or
+            np.isnan(gain_potentiel) or np.isnan(score_opportunite) or
+            np.isnan(rsi)):
             logger.warning(f"Valeurs NaN détectées pour {self.ticker}")
             return None
 
         # Vérification des valeurs négatives ou nulles
-        if prix_actuel <= 0 or prix_achat_cible <= 0 or prix_vente_cible <= 0:
+        if prix_actuel <= 0 or prix_achat_cible <= 0 or prix_vente_cible <= 0 or stop_loss <= 0:
             logger.warning(f"Prix négatifs ou nuls détectés pour {self.ticker}")
             return None
 
@@ -625,6 +649,7 @@ class AnalyseAction:
             'prix_actuel': round(prix_actuel, 2),
             'prix_achat_cible': round(prix_achat_cible, 2),
             'prix_vente_cible': round(prix_vente_cible, 2),
+            'stop_loss': round(stop_loss, 2),
             'gain_potentiel': round(gain_potentiel, 2),
             'score_opportunite': round(score_opportunite, 3),
             'rsi': round(rsi, 1),
