@@ -16,6 +16,7 @@ proxies:
 thresholds:
   rsi_lower: 30
   rsi_upper: 70
+  rsi_periods: [5, 14]
   mm_neutral_ratio: 0.02
   bollinger_threshold: 0.05
   peg_max: 1

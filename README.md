@@ -26,7 +26,7 @@ pip install pandas numpy yfinance curl_cffi sendgrid schedule pyyaml
 - **`analyzer.py`** : recherche des opportunités d'achat sur plusieurs places boursières européennes puis envoie un résumé par e‑mail.
 - **`daily_update.py`** : met à jour automatiquement le dépôt (pull Git) puis lance `analyse_portfolio.py` et `analyzer.py`.
 - **`template_mail.py`** : contient le modèle HTML utilisé pour formater les e‑mails.
-- **`config.yaml`** : configuration du portefeuille, des proxies et informations d'envoi pour `analyse_portfolio.py`. Le fichier contient également un paramètre `use_proxies` pour désactiver les proxies, une section `thresholds` pour ajuster les seuils techniques, `signal_weights` pour pondérer l'importance de chaque signal dans `analyzer.py` et `stop_loss_percent` pour définir la perte maximale acceptable.
+- **`config.yaml`** : configuration du portefeuille, des proxies et informations d'envoi pour `analyse_portfolio.py`. Le fichier contient également un paramètre `use_proxies` pour désactiver les proxies, une section `thresholds` (incluant `rsi_periods` pour les périodes du RSI) pour ajuster les seuils techniques, `signal_weights` pour pondérer l'importance de chaque signal dans `analyzer.py` et `stop_loss_percent` pour définir la perte maximale acceptable.
 - **`config.json`** : configuration générale (proxies, clé SendGrid, adresses e‑mail) utilisée par `analyzer.py`.
 
 ## Indicateurs boursiers utilisés
@@ -35,14 +35,16 @@ Le script `analyzer.py` scanne les principales places boursières européennes e
 calculant plusieurs indicateurs. Chacun d'eux génère un signal booléen qui peut
 être pondéré dans le fichier `config.yaml` (section `signal_weights`).
 
-- **MACD** : croisement du MACD au‑dessus de sa ligne de signal.
+- **MACD** : croisement haussier datant de moins de trois jours et validé par
+  une tendance générale positive du titre.
 - **MM_20_50** : moyenne mobile à 20 jours supérieure à celle à 50 jours.
 - **MM_50_200** : moyenne mobile à 50 jours supérieure à celle à 200 jours.
-- **RSI** : indice de force relative compris entre `rsi_lower` et `rsi_upper`.
+- **RSI** : indicateur calculé sur deux périodes distinctes (par défaut 5 et 14)
+  et compris entre `rsi_lower` et `rsi_upper`.
 - **Tendance** : orientation haussière de la moyenne mobile 20 jours sur les
   cinq derniers jours.
-- **Bollinger** : prix proche de la bande inférieure (paramètre
-  `bollinger_threshold`).
+- **Bollinger** : confirmation d'un rebond depuis la bande inférieure
+  (paramètre `bollinger_threshold`).
 - **PEG** : ratio Price/Earnings to Growth inférieur à `peg_max`.
 - **PriceBook** : ratio Price to Book inférieur à 1,5.
 - **ROE** : Return on Equity supérieur à 10 %.
@@ -70,7 +72,7 @@ permet de privilégier certains indicateurs en ajustant leurs poids.
 ## Utilisation des scripts
 
 1. **Configurer les fichiers de configuration**
-   - Remplir `config.yaml` avec vos actions, votre clé SendGrid et les adresses e‑mail expéditrice/destinataire. Vous pouvez renseigner une liste de proxies et définir `use_proxies: false` pour les désactiver. Les sections `thresholds` et `signal_weights` permettent respectivement d'ajuster les seuils techniques et la pondération de chaque signal pris en compte par `analyzer.py`. Le paramètre `stop_loss_percent` sert à définir le pourcentage de perte acceptable pour le stop loss.
+   - Remplir `config.yaml` avec vos actions, votre clé SendGrid et les adresses e‑mail expéditrice/destinataire. Vous pouvez renseigner une liste de proxies et définir `use_proxies: false` pour les désactiver. Les sections `thresholds` (dont `rsi_periods` pour le RSI) et `signal_weights` permettent respectivement d'ajuster les seuils techniques et la pondération de chaque signal pris en compte par `analyzer.py`. Le paramètre `stop_loss_percent` sert à définir le pourcentage de perte acceptable pour le stop loss.
    - Mettre à jour `config.json` avec votre clé SendGrid (si différente), vos proxies éventuels et les adresses e‑mail.
 
 2. **Lancer l'analyse du portefeuille**
