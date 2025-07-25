@@ -101,6 +101,11 @@ SIGNAL_WEIGHTS = {
     'PEG': signal_weights_cfg.get('PEG', 1.0),
     'PriceBook': signal_weights_cfg.get('PriceBook', 1.0),
     'ROE': signal_weights_cfg.get('ROE', 1.0),
+    # Nouveaux indicateurs techniques
+    'Volume': signal_weights_cfg.get('Volume', 1.0),
+    'Momentum': signal_weights_cfg.get('Momentum', 1.0),
+    'Breakout': signal_weights_cfg.get('Breakout', 1.0),
+    'BougiesVertes': signal_weights_cfg.get('BougiesVertes', 1.0),
 }
 
 # Pourcentage de perte acceptable pour calculer le stop loss
@@ -407,7 +412,7 @@ class AnalyseAction:
                 signaux = self._analyser_signaux(
                     macd, signal, mm, rsi_vals, prix_cloture,
                     bande_inf, bande_sup, ratio_peg,
-                    price_to_book, roe
+                    price_to_book, roe, historique
                 )
             except Exception as e:
                 logger.error(f"Erreur lors de l'analyse des signaux pour {self.ticker}: {e}")
@@ -422,7 +427,8 @@ class AnalyseAction:
             expected_signals = {
                 'MACD', 'MM_20_50', 'MM_50_200', 'RSI',
                 'Tendance', 'Bollinger', 'PEG',
-                'PriceBook', 'ROE'
+                'PriceBook', 'ROE',
+                'Volume', 'Momentum', 'Breakout', 'BougiesVertes'
             }
             for signal_name in expected_signals:
                 if signal_name not in signaux:
@@ -493,7 +499,7 @@ class AnalyseAction:
 
     def _analyser_signaux(
         self, macd, signal, mm, rsi_list, prix_cloture,
-        bande_inf, bande_sup, ratio_peg, price_to_book, roe
+        bande_inf, bande_sup, ratio_peg, price_to_book, roe, historique
     ):
         """Analyse les signaux techniques avec les indicateurs supplémentaires"""
         try:
@@ -531,6 +537,36 @@ class AnalyseAction:
                 )
                 bollinger_signal = bool(rebond and recent_touch)
 
+            # Signal Volume : volume du jour supérieur à la moyenne des 10 derniers jours
+            if 'Volume' in historique and len(historique['Volume']) >= 10:
+                volume_moy10 = historique['Volume'].tail(10).mean()
+                volume_signal = bool(historique['Volume'].iloc[-1] > volume_moy10)
+            else:
+                volume_signal = False
+
+            # Signal Momentum : accélération de la moyenne mobile 20 jours
+            if len(mm[20]) >= 10:
+                slope_recent = mm[20].iloc[-1] - mm[20].iloc[-5]
+                slope_past = mm[20].iloc[-5] - mm[20].iloc[-10]
+                momentum_signal = bool(slope_recent > slope_past and slope_recent > 0)
+            else:
+                momentum_signal = False
+
+            # Signal Breakout : clôture au-dessus du plus haut des 20 derniers jours (hors jour courant)
+            if len(historique['High']) >= 21:
+                resistance = historique['High'].shift(1).rolling(window=20).max().iloc[-1]
+                breakout_signal = bool(dernier_prix > resistance)
+            else:
+                breakout_signal = False
+
+            # Signal Bougies vertes : 3 clôtures haussières sur les 4 derniers jours
+            if len(historique) >= 4:
+                dernieres = historique.tail(4)
+                verts = (dernieres['Close'] > dernieres['Open']).sum()
+                bougies_signal = bool(verts >= 3)
+            else:
+                bougies_signal = False
+
             # Signal PEG : ratio PEG inférieur à 1 est généralement considéré comme bon
             if ratio_peg is None:
                 peg_signal = False
@@ -560,6 +596,10 @@ class AnalyseAction:
                 'PEG': peg_signal,
                 'PriceBook': pb_signal,
                 'ROE': roe_signal,
+                'Volume': volume_signal,
+                'Momentum': momentum_signal,
+                'Breakout': breakout_signal,
+                'BougiesVertes': bougies_signal,
             }
 
             # Journaliser les signaux pour debug
@@ -578,7 +618,11 @@ class AnalyseAction:
                 'Bollinger': False,
                 'PEG': False,
                 'PriceBook': False,
-                'ROE': False
+                'ROE': False,
+                'Volume': False,
+                'Momentum': False,
+                'Breakout': False,
+                'BougiesVertes': False
             }
     @staticmethod
     def obtenir_nom_entreprise(ticker):

@@ -33,6 +33,10 @@ signal_weights:
   PEG: 1.0
   PriceBook: 1.0
   ROE: 1.0
+  Volume: 1.0
+  Momentum: 1.0
+  Breakout: 1.0
+  BougiesVertes: 1.0
 
 # Pourcentage de perte acceptable pour le calcul du stop loss
 stop_loss_percent: 5
