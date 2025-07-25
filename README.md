@@ -29,6 +29,44 @@ pip install pandas numpy yfinance curl_cffi sendgrid schedule pyyaml
 - **`config.yaml`** : configuration du portefeuille, des proxies et informations d'envoi pour `analyse_portfolio.py`. Le fichier contient également un paramètre `use_proxies` pour désactiver les proxies, une section `thresholds` pour ajuster les seuils techniques, `signal_weights` pour pondérer l'importance de chaque signal dans `analyzer.py` et `stop_loss_percent` pour définir la perte maximale acceptable.
 - **`config.json`** : configuration générale (proxies, clé SendGrid, adresses e‑mail) utilisée par `analyzer.py`.
 
+## Indicateurs boursiers utilisés
+
+Le script `analyzer.py` scanne les principales places boursières européennes en
+calculant plusieurs indicateurs. Chacun d'eux génère un signal booléen qui peut
+être pondéré dans le fichier `config.yaml` (section `signal_weights`).
+
+- **MACD** : croisement du MACD au‑dessus de sa ligne de signal.
+- **MM_20_50** : moyenne mobile à 20 jours supérieure à celle à 50 jours.
+- **MM_50_200** : moyenne mobile à 50 jours supérieure à celle à 200 jours.
+- **RSI** : indice de force relative compris entre `rsi_lower` et `rsi_upper`.
+- **Tendance** : orientation haussière de la moyenne mobile 20 jours sur les
+  cinq derniers jours.
+- **Bollinger** : prix proche de la bande inférieure (paramètre
+  `bollinger_threshold`).
+- **PEG** : ratio Price/Earnings to Growth inférieur à `peg_max`.
+- **PriceBook** : ratio Price to Book inférieur à 1,5.
+- **ROE** : Return on Equity supérieur à 10 %.
+
+Le score d'opportunité est calculé en additionnant les poids des signaux positifs
+et en divisant le total par la somme de tous les poids. Les valeurs par défaut
+dans `config.yaml` sont :
+
+```yaml
+signal_weights:
+  MACD: 1.0
+  MM_20_50: 1.0
+  MM_50_200: 1.0
+  RSI: 1.0
+  Tendance: 1.0
+  Bollinger: 1.0
+  PEG: 1.0
+  PriceBook: 1.0
+  ROE: 1.0
+```
+
+Une action est retenue lorsque son score dépasse `min_opportunity_score`, ce qui
+permet de privilégier certains indicateurs en ajustant leurs poids.
+
 ## Utilisation des scripts
 
 1. **Configurer les fichiers de configuration**
