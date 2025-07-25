@@ -48,6 +48,10 @@ calculant plusieurs indicateurs. Chacun d'eux génère un signal booléen qui pe
 - **PEG** : ratio Price/Earnings to Growth inférieur à `peg_max`.
 - **PriceBook** : ratio Price to Book inférieur à 1,5.
 - **ROE** : Return on Equity supérieur à 10 %.
+- **Volume** : volumes supérieurs à la moyenne des 10 derniers jours.
+- **Momentum** : accélération haussière de la tendance.
+- **Breakout** : clôture au-dessus de la résistance récente.
+- **BougiesVertes** : au moins trois bougies vertes sur les quatre derniers jours.
 
 Le score d'opportunité est calculé en additionnant les poids des signaux positifs
 et en divisant le total par la somme de tous les poids. Les valeurs par défaut
@@ -64,6 +68,10 @@ signal_weights:
   PEG: 1.0
   PriceBook: 1.0
   ROE: 1.0
+  Volume: 1.0
+  Momentum: 1.0
+  Breakout: 1.0
+  BougiesVertes: 1.0
 ```
 
 Une action est retenue lorsque son score dépasse `min_opportunity_score`, ce qui
