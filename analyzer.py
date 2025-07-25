@@ -81,6 +81,9 @@ TO_EMAIL = email_cfg.get('to', 'xxx')
 threshold_cfg = cfg.get('thresholds', {}) if isinstance(cfg, dict) else {}
 RSI_LOWER = threshold_cfg.get('rsi_lower', 30)
 RSI_UPPER = threshold_cfg.get('rsi_upper', 70)
+RSI_PERIODS = threshold_cfg.get('rsi_periods', [14])
+if isinstance(RSI_PERIODS, int):
+    RSI_PERIODS = [RSI_PERIODS]
 MM_NEUTRAL_RATIO = threshold_cfg.get('mm_neutral_ratio', 0.02)
 BOLLINGER_THRESHOLD = threshold_cfg.get('bollinger_threshold', 0.05)
 PEG_MAX = threshold_cfg.get('peg_max', 1)
@@ -361,7 +364,11 @@ class AnalyseAction:
             dernier_prix = prix_cloture.iloc[-1]
 
             # Calcul des indicateurs techniques de base
-            rsi = self.indicateurs.calculer_rsi(prix_cloture).iloc[-1]
+            rsi_vals = [
+                self.indicateurs.calculer_rsi(prix_cloture, p).iloc[-1]
+                for p in RSI_PERIODS
+            ]
+            rsi = rsi_vals[-1]  # valeur principale affichée
             macd, signal = self.indicateurs.calculer_macd(prix_cloture)
             mm = self.indicateurs.calculer_moyennes_mobiles(prix_cloture)
 
@@ -398,7 +405,7 @@ class AnalyseAction:
             # Analyse des signaux techniques avec gestion d'erreurs
             try:
                 signaux = self._analyser_signaux(
-                    macd, signal, mm, rsi, prix_cloture,
+                    macd, signal, mm, rsi_vals, prix_cloture,
                     bande_inf, bande_sup, ratio_peg,
                     price_to_book, roe
                 )
@@ -485,7 +492,7 @@ class AnalyseAction:
             return None
 
     def _analyser_signaux(
-        self, macd, signal, mm, rsi, prix_cloture,
+        self, macd, signal, mm, rsi_list, prix_cloture,
         bande_inf, bande_sup, ratio_peg, price_to_book, roe
     ):
         """Analyse les signaux techniques avec les indicateurs supplémentaires"""
@@ -499,19 +506,30 @@ class AnalyseAction:
                 tendance = bool(mm[20].iloc[-1] > mm[20].iloc[-5])
 
             # Vérifier tous les signaux et les convertir explicitement en booléens
-            macd_signal = bool(macd.iloc[-1] > signal.iloc[-1])
+            diff = macd - signal
+            recent_cross = (
+                (diff.iloc[-3:] > 0) & (diff.shift(1).iloc[-3:] <= 0)
+            ).any()
+            macd_signal = bool(recent_cross and tendance)
             mm_20_50 = bool(mm[20].iloc[-1] > mm[50].iloc[-1])
             mm_50_200 = bool(mm[50].iloc[-1] > mm[200].iloc[-1])
-            rsi_ok = bool(RSI_LOWER < rsi < RSI_UPPER)
+            rsi_ok = all(RSI_LOWER < r < RSI_UPPER for r in rsi_list)
 
             # Nouveaux signaux
             # Signal Bollinger : prix proche de la bande inférieure (potentiel d'achat)
             dernier_prix = prix_cloture.iloc[-1]
-            if np.isnan(bande_inf.iloc[-1]):
+            if np.isnan(bande_inf.iloc[-1]) or len(prix_cloture) < 3:
                 bollinger_signal = False
             else:
-                # Signal positif si le prix est proche de la bande inférieure
-                bollinger_signal = bool(dernier_prix < (bande_inf.iloc[-1] * (1 + BOLLINGER_THRESHOLD)))
+                recent_touch = (
+                    prix_cloture.iloc[-3:-1]
+                    <= bande_inf.iloc[-3:-1] * (1 + BOLLINGER_THRESHOLD)
+                ).any()
+                rebond = (
+                    dernier_prix > prix_cloture.iloc[-2]
+                    and dernier_prix > bande_inf.iloc[-1]
+                )
+                bollinger_signal = bool(rebond and recent_touch)
 
             # Signal PEG : ratio PEG inférieur à 1 est généralement considéré comme bon
             if ratio_peg is None:
