@@ -4,8 +4,9 @@ import yaml
 import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import random
 import logging
 from curl_cffi import requests
@@ -590,18 +591,25 @@ class HTMLReportGenerator:
             </tr>
         """
 
-def send_email(from_email, to_email, subject, html_content, api_key):
-    """Envoie le rapport par email via SendGrid."""
+def send_email(from_email, to_email, subject, html_content, smtp_cfg):
+    """Envoie le rapport par email via SMTP."""
     try:
-        message = Mail(
-            from_email=from_email,
-            to_emails=to_email,
-            subject=subject,
-            html_content=html_content
-        )
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = from_email
+        msg['To'] = to_email
+        msg.attach(MIMEText(html_content, 'html'))
 
-        sg = SendGridAPIClient(api_key)
-        response = sg.send(message)
+        host = smtp_cfg.get('host', 'smtp.gmail.com')
+        port = smtp_cfg.get('port', 587)
+        username = smtp_cfg.get('username')
+        password = smtp_cfg.get('password')
+
+        with smtplib.SMTP(host, port) as server:
+            server.starttls()
+            if username and password:
+                server.login(username, password)
+            server.sendmail(from_email, [to_email], msg.as_string())
         return True
     except Exception as e:
         logger.error("Erreur lors de l'envoi de l'email: %s", str(e))
@@ -629,7 +637,7 @@ def main():
             config['email']['to'],
             "Rapport quotidien de portefeuille",
             html_report,
-            config['email']['api_key']
+            config['email'].get('smtp', {})
         )
 
         if success:

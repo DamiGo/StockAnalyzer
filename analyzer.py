@@ -5,8 +5,9 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 import concurrent.futures
-from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail, Email, To, HtmlContent
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import yaml
 import random
 from datetime import datetime
@@ -71,9 +72,9 @@ def set_random_proxy():
     SESSION.proxies.update({"http": proxy, "https": proxy})
     return proxy
 
-# Configuration SendGrid et emails
+# Configuration SMTP et emails
 email_cfg = cfg.get('email', {}) if isinstance(cfg, dict) else {}
-SENDGRID_API_KEY = email_cfg.get('api_key', 'xxx')
+SMTP_CFG = email_cfg.get('smtp', {}) if isinstance(email_cfg, dict) else {}
 FROM_EMAIL = email_cfg.get('from', 'xxx')
 TO_EMAIL = email_cfg.get('to', 'xxx')
 
@@ -815,36 +816,30 @@ def analyse_sbf_120():
     return sorted(resultats_valides, key=lambda x: x['gain_potentiel'], reverse=True)
 
 def envoyer_email(opportunites):
-    """Envoie le rapport par email via SendGrid"""
+    """Envoie le rapport par email via SMTP."""
     try:
-        sg = SendGridAPIClient(SENDGRID_API_KEY)
         corps_html = RapportHTML.generer(opportunites[:10])
 
-        # S'assurer que le contenu HTML est correctement encodé
-        message = Mail(
-            from_email=Email(FROM_EMAIL),
-            to_emails=To(TO_EMAIL),
-            subject=f"Analyse SBF 120 - {datetime.now().strftime('%d/%m/%Y')}")
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = f"Analyse SBF 120 - {datetime.now().strftime('%d/%m/%Y')}"
+        msg['From'] = FROM_EMAIL
+        msg['To'] = TO_EMAIL
+        msg.attach(MIMEText(corps_html, 'html'))
 
-        # Utilisation explicite de HtmlContent pour s'assurer que le contenu est traité comme HTML
-        message.content = HtmlContent(corps_html)
+        host = SMTP_CFG.get('host', 'smtp.gmail.com')
+        port = SMTP_CFG.get('port', 587)
+        username = SMTP_CFG.get('username')
+        password = SMTP_CFG.get('password')
 
-        # Ajout de logs pour vérification
-        logger.info("Contenu HTML généré. Premiers caractères :")
-        logger.info(corps_html[:500])  # Log des premiers caractères pour vérification
-
-        response = sg.send(message)
-        logger.info(f"Email envoyé avec succès (status: {response.status_code})")
-
-        # Log supplémentaire pour vérifier la réponse complète
-        if response.status_code != 202:  # 202 est le code de succès attendu
-            logger.warning(f"Code de statut inattendu: {response.status_code}")
+        with smtplib.SMTP(host, port) as server:
+            server.starttls()
+            if username and password:
+                server.login(username, password)
+            server.sendmail(FROM_EMAIL, [TO_EMAIL], msg.as_string())
+        logger.info("Email envoyé avec succès")
 
     except Exception as e:
         logger.error(f"Erreur lors de l'envoi de l'email: {e}", exc_info=True)
-        # Log plus détaillé de l'erreur si elle se produit
-        if hasattr(e, 'body'):
-            logger.error(f"Détails de l'erreur SendGrid: {e.body}")
 
 def tache_journaliere():
     """Exécute l'analyse quotidienne"""

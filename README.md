@@ -1,6 +1,6 @@
 # StockAnalyzer
 
-Ce projet contient plusieurs scripts Python permettant d'analyser des actions européennes et un portefeuille personnel. Les résultats sont envoyés par e‑mail via SendGrid.
+Ce projet contient plusieurs scripts Python permettant d'analyser des actions européennes et un portefeuille personnel. Les résultats sont envoyés par e‑mail via SMTP Gmail.
 
 ## Prérequis
 
@@ -10,14 +10,13 @@ Ce projet contient plusieurs scripts Python permettant d'analyser des actions eu
   - `numpy`
   - `yfinance`
   - `curl_cffi`  # pour contourner les limitations d'accès de Yahoo Finance
-  - `sendgrid`
   - `schedule`
   - `pyyaml`
 
 Installation rapide :
 
 ```bash
-pip install pandas numpy yfinance curl_cffi sendgrid schedule pyyaml
+pip install pandas numpy yfinance curl_cffi schedule pyyaml
 ```
 
 ## Structure du projet
@@ -27,7 +26,7 @@ pip install pandas numpy yfinance curl_cffi sendgrid schedule pyyaml
 - **`daily_update.py`** : met à jour automatiquement le dépôt (pull Git) puis lance `analyse_portfolio.py` et `analyzer.py`.
 - **`template_mail.py`** : contient le modèle HTML utilisé pour formater les e‑mails.
 - **`config.yaml`** : configuration du portefeuille, des proxies et informations d'envoi pour `analyse_portfolio.py`. Le fichier contient également un paramètre `use_proxies` pour désactiver les proxies, une section `thresholds` (incluant `rsi_periods` pour les périodes du RSI) pour ajuster les seuils techniques, `signal_weights` pour pondérer l'importance de chaque signal dans `analyzer.py` et `stop_loss_percent` pour définir la perte maximale acceptable.
-- **`config.json`** : configuration générale (proxies, clé SendGrid, adresses e‑mail) utilisée par `analyzer.py`.
+- **`config.json`** : configuration générale (proxies, identifiants SMTP, adresses e‑mail) utilisée par `analyzer.py`.
 
 ## Indicateurs boursiers utilisés
 
@@ -80,8 +79,8 @@ permet de privilégier certains indicateurs en ajustant leurs poids.
 ## Utilisation des scripts
 
 1. **Configurer les fichiers de configuration**
-   - Remplir `config.yaml` avec vos actions, votre clé SendGrid et les adresses e‑mail expéditrice/destinataire. Vous pouvez renseigner une liste de proxies et définir `use_proxies: false` pour les désactiver. Les sections `thresholds` (dont `rsi_periods` pour le RSI) et `signal_weights` permettent respectivement d'ajuster les seuils techniques et la pondération de chaque signal pris en compte par `analyzer.py`. Le paramètre `stop_loss_percent` sert à définir le pourcentage de perte acceptable pour le stop loss.
-   - Mettre à jour `config.json` avec votre clé SendGrid (si différente), vos proxies éventuels et les adresses e‑mail.
+   - Remplir `config.yaml` avec vos actions, vos identifiants Gmail et les adresses e‑mail expéditrice/destinataire. Vous pouvez renseigner une liste de proxies et définir `use_proxies: false` pour les désactiver. Les sections `thresholds` (dont `rsi_periods` pour le RSI) et `signal_weights` permettent respectivement d'ajuster les seuils techniques et la pondération de chaque signal pris en compte par `analyzer.py`. Le paramètre `stop_loss_percent` sert à définir le pourcentage de perte acceptable pour le stop loss.
+   - Mettre à jour `config.json` avec vos identifiants SMTP (si différents), vos proxies éventuels et les adresses e‑mail.
 
 2. **Lancer l'analyse du portefeuille**
 
