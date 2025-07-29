@@ -1,8 +1,12 @@
 # Configuration du portefeuille et des paramètres d'envoi
 email:
-  from: "xxx"
-  to: "xxx"
-  api_key: "xxx"
+  from: "xxx@gmail.com"
+  to: "xxx@gmail.com"
+  smtp:
+    host: "smtp.gmail.com"
+    port: 587
+    username: "xxx@gmail.com"
+    password: "xxx"
 
 # Active ou désactive l'utilisation des proxies HTTP
 use_proxies: true
