@@ -62,6 +62,15 @@ CACHE_PERIOD = "5y"
 DATA_CACHE: Dict[str, pd.DataFrame] = {}
 
 
+def build_dataset():
+    """Télécharge et met en cache les données sur 5 ans pour tous les tickers."""
+    console.print("[bold]Constitution du jeu de données (5 ans)[/bold]")
+    for i, ticker in enumerate(track(TICKERS, description="Collecte")):
+        df = get_data(ticker)
+        count = len(df) if df is not None else 0
+        console.log(f"[{i + 1}/{len(TICKERS)}] {ticker}: {count} valeurs")
+
+
 def get_data(ticker: str) -> pd.DataFrame:
     if ticker in DATA_CACHE:
         return DATA_CACHE[ticker]
@@ -98,6 +107,7 @@ def simulate(initial_cash: float = 10000.0):
     sell_count = 0
 
     for current_day in track(days, description="Simulation"):
+        operations: List[str] = []
         # Vendre si l'objectif est atteint ou si un support proche est touche
         for ticker in list(portfolio.keys()):
             data = get_data(ticker)
@@ -111,6 +121,7 @@ def simulate(initial_cash: float = 10000.0):
                 qty = portfolio[ticker]["quantity"]
                 cash += qty * price
                 sell_count += qty
+                operations.append(f"Vente {qty} {ticker} @ {price:.2f}")
                 del portfolio[ticker]
 
         # Rechercher les meilleures opportunites d'achat
@@ -147,8 +158,14 @@ def simulate(initial_cash: float = 10000.0):
             }
             cash -= qty * opp["buy"]
             buy_count += qty
+            operations.append(f"Achat {qty} {opp['ticker']} @ {opp['buy']:.2f}")
             if cash < min((o["buy"] for o in opportunities), default=cash + 1):
                 break
+
+        # Affichage du portefeuille et des operations
+        if operations:
+            for op in operations:
+                console.log(op)
 
         # Affichage du portefeuille
         table = Table(title=f"{current_day.date()} - Cash: {cash:.2f}")
@@ -182,4 +199,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Backtest simple")
     parser.add_argument("--cash", type=float, default=10000.0, help="Montant initial")
     args = parser.parse_args()
+    build_dataset()
     simulate(args.cash)
