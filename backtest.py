@@ -11,7 +11,7 @@ import os
 
 import yfinance as yf
 
-from analyzer import AnalyseAction
+from analyzer import AnalyseAction, SIGNAL_WEIGHTS
 from cache_utils import load_cached_data, save_to_cache
 
 # Liste des tickers à analyser (repris de analyzer.py)
@@ -57,6 +57,9 @@ except Exception:
     cfg = {}
 
 PROFIT_TARGET_PERCENT = cfg.get("profit_target_percent", 10)
+
+# Signaux réellement pris en compte (poids > 0)
+ACTIVE_SIGNALS = {k for k, v in SIGNAL_WEIGHTS.items() if v > 0}
 
 CACHE_PERIOD = "5y"
 DATA_CACHE: Dict[str, pd.DataFrame] = {}
@@ -133,6 +136,14 @@ def simulate(initial_cash: float = 10000.0):
             result = action.analyser()
             if not result:
                 continue
+
+            # Filtrer les signaux pour ne conserver que ceux avec un poids positif
+            active_result_signals = [
+                s.strip() for s in result.get("signaux", "").split(",") if s.strip() in ACTIVE_SIGNALS
+            ]
+            if not active_result_signals:
+                continue
+
             buy_price = result["prix_achat_cible"]
             if buy_price and buy_price <= cash:
                 opportunities.append({
