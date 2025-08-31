@@ -431,15 +431,25 @@ class AnalyseAction:
                 'PriceBook', 'ROE',
                 'Volume', 'Momentum', 'Breakout', 'BougiesVertes'
             }
-            for signal_name in expected_signals:
+
+            # Ne conserver que les indicateurs dont la pondération est strictement positive
+            relevant_signals = {
+                s for s in expected_signals if SIGNAL_WEIGHTS.get(s, 1.0) > 0
+            }
+
+            for signal_name in relevant_signals:
                 if signal_name not in signaux:
-                    logger.warning(f"Signal manquant: {signal_name} pour {self.ticker}")
+                    logger.warning(
+                        f"Signal manquant: {signal_name} pour {self.ticker}"
+                    )
                     signaux[signal_name] = False
 
-            # Calcul du score d'opportunité pondéré
-            total_poids = sum(SIGNAL_WEIGHTS.get(s, 1.0) for s in expected_signals)
+            # Calcul du score d'opportunité pondéré en ignorant les poids nuls
+            total_poids = sum(SIGNAL_WEIGHTS.get(s, 1.0) for s in relevant_signals)
             poids_positifs = sum(
-                SIGNAL_WEIGHTS.get(s, 1.0) for s, v in signaux.items() if v
+                SIGNAL_WEIGHTS.get(s, 1.0)
+                for s, v in signaux.items()
+                if v and SIGNAL_WEIGHTS.get(s, 1.0) > 0
             )
             score_opportunite = poids_positifs / total_poids if total_poids else 0
 
@@ -716,7 +726,13 @@ class AnalyseAction:
             'gain_potentiel': round(gain_potentiel, 2),
             'score_opportunite': round(score_opportunite, 3),
             'rsi': round(rsi, 1),
-            'signaux': ', '.join([k for k, v in signaux.items() if v])
+            'signaux': ', '.join(
+                [
+                    k
+                    for k, v in signaux.items()
+                    if v and SIGNAL_WEIGHTS.get(k, 1.0) > 0
+                ]
+            )
         }
 
     def _calculer_position_bollinger(self, prix, bande_inf, bande_sup):
