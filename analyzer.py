@@ -733,7 +733,11 @@ class AnalyseAction:
                     if v and SIGNAL_WEIGHTS.get(k, 1.0) > 0
                 ]
             ),
-            'indicateurs': {k: bool(v) for k, v in signaux.items()},
+            'indicateurs': {
+                k: bool(v)
+                for k, v in signaux.items()
+                if SIGNAL_WEIGHTS.get(k, 1.0) > 0
+            },
         }
 
     def _calculer_position_bollinger(self, prix, bande_inf, bande_sup):
